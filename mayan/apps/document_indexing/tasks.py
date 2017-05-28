@@ -71,6 +71,10 @@ def task_index_document(self, document_id):
             )
             raise self.retry(exc=exception)
         except LockError as exception:
+            logger.warning(
+                'Unable to acquire lock for document %s; %s ',
+                document, exception
+            )
             raise self.retry(exc=exception)
 
 
