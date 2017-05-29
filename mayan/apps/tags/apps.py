@@ -1,6 +1,7 @@
 from __future__ import unicode_literals
 
 from django.apps import apps
+from django.db.models.signals import post_delete, post_save
 from django.utils.translation import ugettext_lazy as _
 
 from acls import ModelPermission
@@ -140,4 +141,17 @@ class TagsApp(MayanAppConfig):
                 'tags:tag_attach', 'tags:document_tags',
                 'tags:single_document_multiple_tag_remove'
             )
+        )
+
+        # Index updating
+
+        post_delete.connect(
+            handler_index_document,
+            dispatch_uid='handler_index_document_delete',
+            sender=DocumentMetadata
+        )
+        post_save.connect(
+            handler_index_document,
+            dispatch_uid='handler_index_document_save',
+            sender=DocumentMetadata
         )
