@@ -16,5 +16,7 @@ def launch_workflow(sender, instance, created, **kwargs):
 
 def handler_index_document(sender, **kwargs):
     task_index_document.apply_async(
-        document_id=kwargs['instance'].workflow_instance.document.pk
+        kwargs=dict(
+            document_id=kwargs['instance'].workflow_instance.document.pk
+        )
     )

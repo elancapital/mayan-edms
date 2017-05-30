@@ -29,6 +29,12 @@ class Workflow(models.Model):
     label = models.CharField(
         max_length=255, unique=True, verbose_name=_('Label')
     )
+    slug = models.SlugField(
+        help_text=_(
+            'This value will be used by other apps to reference this '
+            'workflow. Can only contain letters, numbers, and underscores.'
+        ), max_length=255, unique=True, verbose_name=_('Slug')
+    )
     document_types = models.ManyToManyField(
         DocumentType, related_name='workflows',
         verbose_name=_('Document types')

@@ -142,16 +142,3 @@ class TagsApp(MayanAppConfig):
                 'tags:single_document_multiple_tag_remove'
             )
         )
-
-        # Index updating
-
-        post_delete.connect(
-            handler_index_document,
-            dispatch_uid='handler_index_document_delete',
-            sender=DocumentMetadata
-        )
-        post_save.connect(
-            handler_index_document,
-            dispatch_uid='handler_index_document_save',
-            sender=DocumentMetadata
-        )
