@@ -18,6 +18,7 @@ from documents.search import document_search, document_page_search
 from documents.signals import post_version_upload
 from documents.widgets import document_link
 from mayan.celery import app
+from mayan_task_manager.classes import CeleryQueue
 from navigation import SourceColumn
 from rest_api.classes import APIEndPoint
 
@@ -54,6 +55,8 @@ class OCRApp(MayanAppConfig):
 
     def ready(self):
         super(OCRApp, self).ready()
+
+        CeleryQueue(name='ocr', label=_('OCR'))
 
         Document = apps.get_model(
             app_label='documents', model_name='Document'

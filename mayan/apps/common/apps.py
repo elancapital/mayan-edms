@@ -13,6 +13,7 @@ from django.db.models.signals import post_save
 from django.utils.translation import ugettext_lazy as _
 
 from mayan.celery import app
+from mayan_task_manager.classes import CeleryQueue
 from navigation.classes import Separator
 from rest_api.classes import APIEndPoint
 
@@ -79,6 +80,10 @@ class CommonApp(MayanAppConfig):
         super(CommonApp, self).ready()
 
         APIEndPoint(app=self, version_string='1')
+
+        CeleryQueue(name='default', label=_('Default'), is_default_queue=True)
+        CeleryQueue(name='tools', label=_('Tools'))
+        CeleryQueue(name='common_periodic', label=_('Common periodic'))
 
         app.conf.CELERYBEAT_SCHEDULE.update(
             {
