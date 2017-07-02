@@ -1,9 +1,14 @@
 from __future__ import unicode_literals
 
+import json
+
 from django import forms
 from django.conf import settings
 from django.utils.translation import ugettext_lazy as _
 
+from common.forms import DynamicModelForm
+
+from .models import UserMailer
 from .settings import (
     setting_document_body_template, setting_document_subject_template,
     setting_link_body_template, setting_link_subject_template
@@ -38,3 +43,24 @@ class DocumentMailForm(forms.Form):
     body = forms.CharField(
         label=_('Body'), widget=forms.widgets.Textarea(), required=False
     )
+
+
+class UserMailerDynamicForm(DynamicModelForm, forms.ModelForm):
+    class Meta:
+        fields = ('label', 'default')
+        model = UserMailer
+
+    def clean(self):
+        data = super(UserMailerDynamicForm, self).clean()
+
+        # Consolidate the dynamic fields into a single JSON field called
+        # 'backend_data'.
+        backend_data = {}
+
+        for field in self.schema['fields']:
+            backend_data[field['name']] = data.pop(
+                field['name'], field['default']
+            )
+
+        data['backend_data'] = json.dumps(backend_data)
+        return data

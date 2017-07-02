@@ -1,15 +1,22 @@
 from __future__ import absolute_import, unicode_literals
 
 from django.contrib.sites.models import Site
+from django.core.urlresolvers import reverse_lazy
+from django.http import Http404
 from django.template import Context, Template
+from django.utils.module_loading import import_string
 from django.utils.html import strip_tags
 from django.utils.translation import ungettext, ugettext_lazy as _
 
-from common.generics import MultipleObjectFormActionView, SingleObjectListView
+from common.generics import (
+    DynamicFormView, MultipleObjectFormActionView,
+    SingleObjectDynamicFormCreateView, SingleObjectListView
+)
 from documents.models import Document
 
-from .forms import DocumentMailForm
-from .models import LogEntry
+from .backends import MailingBackend
+from .forms import DocumentMailForm, UserMailerDynamicForm
+from .models import LogEntry, UserMailer
 from .permissions import (
     permission_mailing_link, permission_mailing_send_document,
     permission_view_error_log
@@ -104,3 +111,42 @@ class MailDocumentLinkView(MailDocumentView):
     title = 'Email document link'
     title_plural = 'Email document links'
     title_document = 'Email link for document: %s'
+
+
+class UserMailingCreateView(SingleObjectDynamicFormCreateView):
+    form_class = UserMailerDynamicForm
+
+    #view_permission = permission_folder_create
+    #TODO: create mailer permissions
+
+    #TODO: fix post action
+    post_action_redirect = reverse_lazy('mailer:user_mailer_list')
+
+    def get_backend(self):
+        try:
+            return MailingBackend.get(name=self.kwargs['class_path'])
+        except KeyError:
+            raise Http404(
+                '{} class not found'.format(self.kwargs['class_path'])
+            )
+
+    def get_extra_context(self):
+        return {
+            'title': _('Create a "%s" mailer') % self.get_backend().label,
+        }
+
+    def get_form_schema(self):
+        return {'fields': self.get_backend().fields}
+
+    def get_instance_extra_data(self):
+        return {'backend_path': self.kwargs['class_path']}
+
+
+class UserMailerListView(SingleObjectListView):
+    extra_context = {
+        'hide_object': True,
+        'title': _('User mailers'),
+    }
+    model = UserMailer
+    #view_permission = permission_view_error_log
+    #TODO: add permission_user_mailer_view

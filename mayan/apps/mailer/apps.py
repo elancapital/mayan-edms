@@ -20,6 +20,9 @@ from .permissions import (
 )
 from .queues import *  # NOQA
 
+from .backends import *
+#TODO: fix this hack, use app module scanning or move mailers from backends
+#to .mailers.py
 
 class MailerApp(MayanAppConfig):
     has_tests = True
@@ -34,6 +37,7 @@ class MailerApp(MayanAppConfig):
         )
 
         LogEntry = self.get_model('LogEntry')
+        UserMailer = self.get_model('UserMailer')
 
         SourceColumn(
             source=LogEntry, label=_('Date and time'), attribute='datetime'
@@ -41,6 +45,18 @@ class MailerApp(MayanAppConfig):
 
         SourceColumn(
             source=LogEntry, label=_('Message'), attribute='message'
+        )
+
+        SourceColumn(
+            source=UserMailer, label=_('Label'), attribute='label'
+        )
+
+        SourceColumn(
+            source=UserMailer, label=_('Default'), attribute='default'
+        )
+
+        SourceColumn(
+            source=UserMailer, label=_('Backend'), attribute='backend_label'
         )
 
         ModelPermission.register(
