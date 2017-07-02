@@ -19,7 +19,7 @@ from django_downloadview import (
 )
 from pure_pagination.mixins import PaginationMixin
 
-from .forms import ChoiceForm
+from .forms import ChoiceForm, DynamicForm
 from .mixins import (
     DeleteExtraDataMixin, ExtraContextMixin, FormExtraKwargsMixin,
     MultipleObjectMixin, ObjectActionMixin,
@@ -190,6 +190,13 @@ class FormView(FormExtraKwargsMixin, ViewPermissionCheckMixin, ExtraContextMixin
     template_name = 'appearance/generic_form.html'
 
 
+class DynamicFormView(FormView):
+    form_class = DynamicForm
+
+    def get_form_extra_kwargs(self):
+        return {'schema': self.get_form_schema()}
+
+
 class MultiFormView(DjangoFormView):
     prefix = None
     prefixes = {}
@@ -302,7 +309,7 @@ class SimpleView(ViewPermissionCheckMixin, ExtraContextMixin, TemplateView):
     pass
 
 
-class SingleObjectCreateView(ObjectNameMixin, ViewPermissionCheckMixin, ExtraContextMixin, RedirectionMixin, CreateView):
+class SingleObjectCreateView(ObjectNameMixin, ViewPermissionCheckMixin, ExtraContextMixin, RedirectionMixin, FormExtraKwargsMixin, CreateView):
     template_name = 'appearance/generic_form.html'
 
     def form_valid(self, form):
@@ -342,6 +349,13 @@ class SingleObjectCreateView(ObjectNameMixin, ViewPermissionCheckMixin, ExtraCon
             )
 
         return HttpResponseRedirect(self.get_success_url())
+
+
+class SingleObjectDynamicFormCreateView(SingleObjectCreateView):
+    form_class = DynamicForm
+
+    def get_form_extra_kwargs(self):
+        return {'schema': self.get_form_schema()}
 
 
 class SingleObjectDeleteView(ObjectNameMixin, DeleteExtraDataMixin, ViewPermissionCheckMixin, ObjectPermissionCheckMixin, ExtraContextMixin, RedirectionMixin, DeleteView):
