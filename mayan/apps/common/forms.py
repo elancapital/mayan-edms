@@ -99,6 +99,11 @@ class DynamicFormMixin(object):
             kwargs.update(field.get('kwargs', {}))
             self.fields[field['name']] = field_class(**kwargs)
 
+        for field, widget in self.schema.get('widgets', {}).items():
+            self.fields[field].widget = import_string(
+                widget['class']
+            )(**widget.get('kwargs', {}))
+
 
 class DynamicForm(DynamicFormMixin, forms.Form):
     pass
