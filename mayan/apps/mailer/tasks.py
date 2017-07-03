@@ -6,8 +6,6 @@ from django.core.mail import EmailMultiAlternatives
 from documents.models import Document
 from mayan.celery import app
 
-from .models import LogEntry
-
 
 @app.task(ignore_result=True)
 def task_send_document(subject_text, body_text_content, sender, recipient, document_id, user_mailer_id, as_attachment=False):

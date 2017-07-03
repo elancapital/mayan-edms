@@ -5,14 +5,13 @@ from django.core.urlresolvers import reverse, reverse_lazy
 from django.http import Http404, HttpResponseRedirect
 from django.shortcuts import get_object_or_404
 from django.template import Context, Template
-from django.utils.module_loading import import_string
 from django.utils.html import strip_tags
 from django.utils.translation import ungettext, ugettext_lazy as _
 
 from common.generics import (
-    DynamicFormView, FormView, MultipleObjectFormActionView,
-    SingleObjectDeleteView, SingleObjectDynamicFormCreateView,
-    SingleObjectDynamicFormEditView, SingleObjectListView
+    FormView, MultipleObjectFormActionView, SingleObjectDeleteView,
+    SingleObjectDynamicFormCreateView, SingleObjectDynamicFormEditView,
+    SingleObjectListView
 )
 from documents.models import Document
 

@@ -76,20 +76,34 @@ class UserMailer(models.Model):
 
     def send(self, **kwargs):
         """
-        https://docs.djangoproject.com/en/1.11/topics/email/#django.core.mail.EmailMessage
+        https://docs.djangoproject.com/en/1.11/topics/email
+        #django.core.mail.EmailMessage
         subject: The subject line of the email.
         body: The body text. This should be a plain text message.
-        from_email: The sender's address. Both fred@example.com and Fred <fred@example.com> forms are legal. If omitted, the DEFAULT_FROM_EMAIL setting is used.
+        from_email: The sender's address. Both fred@example.com and Fred
+        <fred@example.com> forms are legal. If omitted,
+        the DEFAULT_FROM_EMAIL setting is used.
         to: A list or tuple of recipient addresses.
-        bcc: A list or tuple of addresses used in the "Bcc" header when sending the email.
-        connection: An email backend instance. Use this parameter if you want to use the same connection for multiple messages. If omitted, a new connection is created when send() is called.
-        attachments: A list of attachments to put on the message. These can be either email.MIMEBase.MIMEBase instances, or (filename, content, mimetype) triples.
-        headers: A dictionary of extra headers to put on the message. The keys are the header name, values are the header values. It's up to the caller to ensure header names and values are in the correct format for an email message. The corresponding attribute is extra_headers.
-        cc: A list or tuple of recipient addresses used in the "Cc" header when sending the email.
-        reply_to: A list or tuple of recipient addresses used in the "Reply-To" header when sending the email.
+        bcc: A list or tuple of addresses used in the "Bcc" header when
+        sending the email.
+        connection: An email backend instance. Use this parameter if you want
+        to use the same connection for multiple messages. If omitted, a new
+        connection is created when send() is called.
+        attachments: A list of attachments to put on the message. These can be
+        either email.MIMEBase.MIMEBase instances, or (filename, content,
+        mimetype) triples.
+        headers: A dictionary of extra headers to put on the message. The
+        keys are the header name, values are the header values. It's up to
+        the caller to ensure header names and values are in the correct
+        format for an email message. The corresponding attribute is
+        extra_headers.
+        cc: A list or tuple of recipient addresses used in the "Cc"
+        header when sending the email.
+        reply_to: A list or tuple of recipient addresses used in the
+        "Reply-To" header when sending the email.
         """
-        with mail.get_connection() as connection:
-            mail.EmailMessage(connection=self.get_connection(), **kwargs).send()
+        with self.get_connection() as connection:
+            mail.EmailMessage(connection=connection, **kwargs).send()
 
     def test(self, to):
         self.send(to=to, subject=_('Test email from Mayan EDMS'))

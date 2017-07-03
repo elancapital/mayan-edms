@@ -2,12 +2,9 @@ from __future__ import unicode_literals
 
 from importlib import import_module
 import logging
-import os
 
 from django.apps import apps
-from django.conf import settings
 from django.utils import six
-from django.utils.functional import Promise
 from django.utils.encoding import force_text
 
 logger = logging.getLogger(__name__)
@@ -20,9 +17,13 @@ class MailerBackendMetaclass(type):
     _registry = {}
 
     def __new__(mcs, name, bases, attrs):
-        new_class = super(MailerBackendMetaclass, mcs).__new__(mcs, name, bases, attrs)
+        new_class = super(MailerBackendMetaclass, mcs).__new__(
+            mcs, name, bases, attrs
+        )
         if not new_class.__module__ == 'mailer.classes':
-            mcs._registry['{}.{}'.format(new_class.__module__, name)] = new_class
+            mcs._registry[
+                '{}.{}'.format(new_class.__module__, name)
+            ] = new_class
 
         return new_class
 
