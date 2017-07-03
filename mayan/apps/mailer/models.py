@@ -68,7 +68,7 @@ class UserMailer(models.Model):
         )
 
     def loads(self):
-        return json.loads(self.serialize_data)
+        return json.loads(self.backend_data)
 
     def dumps(self, data):
         self.backend_data = json.dumps(data)
@@ -96,7 +96,9 @@ class UserMailer(models.Model):
 
 
 class UserMailerLogEntry(models.Model):
-    user_mailer = models.ForeignKey(UserMailer, verbose_name=_('User mailer'))
+    user_mailer = models.ForeignKey(
+        UserMailer, related_name='error_log', verbose_name=_('User mailer')
+    )
     datetime = models.DateTimeField(
         auto_now_add=True, editable=False, verbose_name=_('Date time')
     )

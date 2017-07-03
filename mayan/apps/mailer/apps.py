@@ -6,23 +6,26 @@ from django.apps import apps
 from django.utils.translation import ugettext_lazy as _
 
 from acls import ModelPermission
-from common import MayanAppConfig, menu_object, menu_multi_item, menu_tools
+from common import (
+    MayanAppConfig, menu_object, menu_multi_item, menu_secondary, menu_setup,
+    menu_tools
+)
+from common.widgets import two_state_template
 from mayan.celery import app
 from navigation import SourceColumn
 
+from .classes import MailerBackend
 from .links import (
-    link_document_mailing_error_log, link_send_document_link,
-    link_send_document, link_send_multiple_document,
-    link_send_multiple_document_link
+    link_send_document_link, link_send_document, link_send_multiple_document,
+    link_send_multiple_document_link, link_system_mailer_error_log,
+    link_user_mailer_create, link_user_mailer_delete, link_user_mailer_edit,
+    link_user_mailer_list, link_user_mailer_log_list, link_user_mailer_setup
 )
 from .permissions import (
     permission_mailing_link, permission_mailing_send_document
 )
 from .queues import *  # NOQA
 
-from .backends import *
-#TODO: fix this hack, use app module scanning or move mailers from backends
-#to .mailers.py
 
 class MailerApp(MayanAppConfig):
     has_tests = True
@@ -39,24 +42,25 @@ class MailerApp(MayanAppConfig):
         LogEntry = self.get_model('LogEntry')
         UserMailer = self.get_model('UserMailer')
 
+        MailerBackend.initialize()
+
         SourceColumn(
             source=LogEntry, label=_('Date and time'), attribute='datetime'
         )
-
         SourceColumn(
             source=LogEntry, label=_('Message'), attribute='message'
         )
-
         SourceColumn(
             source=UserMailer, label=_('Label'), attribute='label'
         )
-
         SourceColumn(
-            source=UserMailer, label=_('Default'), attribute='default'
+            source=UserMailer, label=_('Default?'),
+            func=lambda context: two_state_template(
+                context['object'].default
+            )
         )
-
         SourceColumn(
-            source=UserMailer, label=_('Backend'), attribute='backend_label'
+            source=UserMailer, label=_('Label'), attribute='backend_label'
         )
 
         ModelPermission.register(
@@ -89,4 +93,22 @@ class MailerApp(MayanAppConfig):
             ), sources=(Document,)
         )
 
-        menu_tools.bind_links(links=(link_document_mailing_error_log,))
+        menu_object.bind_links(
+            links=(
+                link_user_mailer_edit, link_user_mailer_log_list,
+                link_user_mailer_delete,
+            ), sources=(UserMailer,)
+        )
+
+        menu_secondary.bind_links(
+            links=(
+                link_user_mailer_list, link_user_mailer_create,
+            ), sources=(
+                UserMailer, 'mailer:user_mailer_list',
+                'mailer:user_mailer_create'
+            )
+        )
+
+        menu_tools.bind_links(links=(link_system_mailer_error_log,))
+
+        menu_setup.bind_links(links=(link_user_mailer_setup,))

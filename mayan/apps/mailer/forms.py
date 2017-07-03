@@ -8,6 +8,7 @@ from django.utils.translation import ugettext_lazy as _
 
 from common.forms import DynamicModelForm
 
+from .classes import MailerBackend
 from .models import UserMailer
 from .settings import (
     setting_document_body_template, setting_document_subject_template,
@@ -45,10 +46,32 @@ class DocumentMailForm(forms.Form):
     )
 
 
-class UserMailerDynamicForm(DynamicModelForm, forms.ModelForm):
+class UserMailerBackendSelectionForm(forms.Form):
+    backend = forms.ChoiceField(choices=(), label=_('Backend'))
+
+    def __init__(self, *args, **kwargs):
+        super(UserMailerBackendSelectionForm, self).__init__(*args, **kwargs)
+
+        self.fields['backend'].choices=[
+            (
+                key, backend.label
+            ) for key, backend in MailerBackend.get_all().items()
+        ]
+
+
+class UserMailerDynamicForm(DynamicModelForm):
     class Meta:
-        fields = ('label', 'default')
+        fields = ('label', 'default', 'backend_data')
         model = UserMailer
+        widgets = {'backend_data': forms.widgets.HiddenInput}
+
+    def __init__(self, *args, **kwargs):
+        result = super(UserMailerDynamicForm, self).__init__(*args, **kwargs)
+        if self.instance.backend_data:
+            for key, value in json.loads(self.instance.backend_data).items():
+                self.fields[key].initial = value
+
+        return result
 
     def clean(self):
         data = super(UserMailerDynamicForm, self).clean()
@@ -59,7 +82,7 @@ class UserMailerDynamicForm(DynamicModelForm, forms.ModelForm):
 
         for field in self.schema['fields']:
             backend_data[field['name']] = data.pop(
-                field['name'], field['default']
+                field['name'], field.get('default', None)
             )
 
         data['backend_data'] = json.dumps(backend_data)
