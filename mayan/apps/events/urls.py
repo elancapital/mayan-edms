@@ -5,7 +5,10 @@ from django.conf.urls import url
 from .api_views import (
     APIEventListView, APIEventTypeListView, APIObjectEventListView
 )
-from .views import EventListView, ObjectEventListView, VerbEventListView
+from .views import (
+    EventListView, EventTypeSubscriptionListView, NotificationListView,
+    NotificationMarkRead, ObjectEventListView, VerbEventListView
+)
 
 urlpatterns = [
     url(r'^all/$', EventListView.as_view(), name='events_list'),
@@ -16,6 +19,20 @@ urlpatterns = [
     url(
         r'^by_verb/(?P<verb>[\w\-]+)/$', VerbEventListView.as_view(),
         name='events_by_verb'
+    ),
+    url(
+        r'^notifications/(?P<pk>\d+)/mark_read/$',
+        NotificationMarkRead.as_view(), name='notification_mark_read'
+    ),
+    url(
+        r'^user/event_types/subscriptions/$',
+        EventTypeSubscriptionListView.as_view(),
+        name='event_types_user_subcriptions_list'
+    ),
+    url(
+        r'^user/notifications/$',
+        NotificationListView.as_view(),
+        name='user_notifications_list'
     ),
 ]
 

@@ -16,5 +16,5 @@ def event_object_link(entry):
 def event_type_link(entry):
     return mark_safe('<a href="%(url)s">%(label)s</a>' % {
         'url': reverse('events:events_by_verb', kwargs={'verb': entry.verb}),
-        'label': Event.get_label(entry.verb)}
+        'label': Event.get(name=entry.verb)}
     )
