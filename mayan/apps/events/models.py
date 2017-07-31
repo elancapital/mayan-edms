@@ -7,7 +7,7 @@ from django.utils.translation import ugettext_lazy as _
 
 from actstream.models import Action
 
-from .classes import Event
+from .classes import EventType
 
 
 @python_2_unicode_compatible
@@ -24,7 +24,15 @@ class StoredEventType(models.Model):
         return force_text(self.get_class())
 
     def get_class(self):
-        return Event.get(name=self.name)
+        return EventType.get(name=self.name)
+
+    @property
+    def label(self):
+        return self.get_class().label
+
+    @property
+    def namespace(self):
+        return self.get_class().namespace
 
 
 @python_2_unicode_compatible

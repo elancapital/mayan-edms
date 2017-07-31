@@ -14,7 +14,7 @@ from common.generics import FormView, SimpleView
 from common.utils import encapsulate
 from common.views import SingleObjectListView
 
-from .classes import Event
+from .classes import EventType
 from .forms import EventTypeUserRelationshipFormSet
 from .models import StoredEventType
 from .permissions import permission_events_view
@@ -46,6 +46,10 @@ class EventTypeSubscriptionListView(FormView):
     form_class = EventTypeUserRelationshipFormSet
     main_model = 'user'
     submodel = StoredEventType
+
+    def dispatch(self, *args, **kwargs):
+        EventType.refresh()
+        return super(EventTypeSubscriptionListView, self).dispatch(*args, **kwargs)
 
     def form_valid(self, form):
         try:
@@ -93,7 +97,9 @@ class EventTypeSubscriptionListView(FormView):
         return reverse('common:current_user_details')
 
     def get_queryset(self):
-        return self.submodel.objects.all()
+        # Return the queryset by name from the sorted list of the class
+        event_type_ids = [event_type.id for event_type in EventType.all()]
+        return self.submodel.objects.filter(name__in=event_type_ids)
 
 
 class NotificationListView(SingleObjectListView):
@@ -170,5 +176,5 @@ class VerbEventListView(SingleObjectListView):
             'hide_object': True,
             'title': _(
                 'Events of type: %s'
-            ) % Event.get(name=self.kwargs['verb']),
+            ) % EventType.get(name=self.kwargs['verb']),
         }

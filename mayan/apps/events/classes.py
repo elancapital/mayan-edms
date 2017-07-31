@@ -1,5 +1,7 @@
 from __future__ import unicode_literals
 
+import logging
+
 from django.apps import apps
 from django.contrib.auth import get_user_model
 from django.core.exceptions import PermissionDenied
@@ -10,9 +12,11 @@ from actstream import action
 
 from .permissions import permission_events_view
 
+logger = logging.getLogger(__name__)
+
 
 @python_2_unicode_compatible
-class Event(object):
+class EventTypeNamespace(object):
     _registry = {}
 
     @classmethod
@@ -21,28 +25,68 @@ class Event(object):
 
     @classmethod
     def get(cls, name):
-        try:
-            return cls._registry[name]
-        except KeyError:
-            raise KeyError(
-                _('Unknown or obsolete event type: {0}'.format(name))
-            )
+        return cls._registry[name]
 
     def __init__(self, name, label):
         self.name = name
         self.label = label
-        self.stored_event_type = None
+        self.event_types = []
         self.__class__._registry[name] = self
 
     def __str__(self):
         return force_text(self.label)
 
-    def get_type(self):
+    def add_event_type(self, name, label):
+        event_type = EventType(namespace=self, name=name, label=label)
+        self.event_types.append(event_type)
+        return event_type
+
+
+@python_2_unicode_compatible
+class EventType(object):
+    _registry = {}
+
+    @classmethod
+    def all(cls):
+        # Return sorted permisions by namespace.name
+        return sorted(
+            cls._registry.values(), key=lambda x: x.namespace.name
+        )
+
+    @classmethod
+    def get(cls, name):
+        try:
+            return cls._registry[name]
+        except KeyError:
+            raise KeyError(
+                'Unknown or obsolete event type: {0}'.format(name)
+            )
+
+    def __init__(self, namespace, name, label):
+        self.namespace = namespace
+        self.name = name
+        self.label = label
+        self.stored_event_type = None
+        self.__class__._registry[self.id] = self
+
+    def __str__(self):
+        return force_text('{}: {}'.format(self.namespace.label, self.label))
+
+    @property
+    def id(self):
+        return '%s.%s' % (self.namespace.name, self.name)
+
+    @classmethod
+    def refresh(cls):
+        for event_type in cls.all():
+            event_type.get_stored_event_type()
+
+    def get_stored_event_type(self):
         if not self.stored_event_type:
             StoredEventType = apps.get_model('events', 'StoredEventType')
 
             self.stored_event_type, created = StoredEventType.objects.get_or_create(
-                name=self.name
+                name=self.id
             )
 
         return self.stored_event_type
@@ -58,14 +102,8 @@ class Event(object):
             app_label='events', model_name='Notification'
         )
 
-        if not self.stored_event_type:
-            StoredEventType = apps.get_model('events', 'StoredEventType')
-            self.stored_stored_event_type, created = StoredEventType.objects.get_or_create(
-                name=self.name
-            )
-
         results = action.send(
-            actor or target, actor=actor, verb=self.name,
+            actor or target, actor=actor, verb=self.id,
             action_object=action_object, target=target
         )
 

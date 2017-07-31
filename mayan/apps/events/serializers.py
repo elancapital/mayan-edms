@@ -8,7 +8,7 @@ from rest_framework import serializers
 from common.serializers import ContentTypeSerializer
 from rest_api.fields import DynamicSerializerField
 
-from .classes import Event
+from .classes import EventType
 from .models import StoredEventType
 
 
@@ -17,7 +17,7 @@ class EventTypeSerializer(serializers.Serializer):
     name = serializers.CharField()
 
     def to_representation(self, instance):
-        if isinstance(instance, Event):
+        if isinstance(instance, EventType):
             return super(EventTypeSerializer, self).to_representation(
                 instance
             )
@@ -27,7 +27,7 @@ class EventTypeSerializer(serializers.Serializer):
             )
         elif isinstance(instance, string_types):
             return super(EventTypeSerializer, self).to_representation(
-                Event.get(name=instance)
+                EventType.get(name=instance)
             )
 
 

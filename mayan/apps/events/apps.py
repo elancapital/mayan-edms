@@ -36,26 +36,30 @@ class EventsApp(MayanAppConfig):
         )
         SourceColumn(source=Action, label=_('Actor'), attribute='actor')
         SourceColumn(
-            source=Action, label=_('Verb'),
+            source=Action, label=_('Event'),
             func=lambda context: event_type_link(context['object'])
         )
 
         SourceColumn(
-            source=StoredEventType, label=_('Label'), attribute='__str__'
+            source=StoredEventType, label=_('Namespace'), attribute='namespace'
+        )
+        SourceColumn(
+            source=StoredEventType, label=_('Label'), attribute='label'
         )
 
         SourceColumn(
-            source=Notification, label=_('Timestamp'), attribute='action.timestamp'
+            source=Notification, label=_('Timestamp'),
+            attribute='action.timestamp'
         )
         SourceColumn(
             source=Notification, label=_('Actor'), attribute='action.actor'
         )
         SourceColumn(
-            source=Notification, label=_('Verb'),
+            source=Notification, label=_('Event'),
             func=lambda context: event_type_link(context['object'].action)
         )
         SourceColumn(
-            source=Notification, label=_('Verb'),
+            source=Notification, label=_('Object'),
             func=lambda context: event_object_link(context['object'].action)
         )
         SourceColumn(

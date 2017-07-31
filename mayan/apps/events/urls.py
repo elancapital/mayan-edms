@@ -17,7 +17,7 @@ urlpatterns = [
         ObjectEventListView.as_view(), name='events_for_object'
     ),
     url(
-        r'^by_verb/(?P<verb>[\w\-]+)/$', VerbEventListView.as_view(),
+        r'^by_verb/(?P<verb>[\w\-\.]+)/$', VerbEventListView.as_view(),
         name='events_by_verb'
     ),
     url(

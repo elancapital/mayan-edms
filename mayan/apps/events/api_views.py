@@ -10,7 +10,7 @@ from rest_framework import generics
 from acls.models import AccessControlList
 from rest_api.permissions import MayanPermission
 
-from .classes import Event
+from .classes import EventType
 from .permissions import permission_events_view
 from .serializers import EventSerializer, EventTypeSerializer
 
@@ -52,7 +52,7 @@ class APIEventTypeListView(generics.ListAPIView):
     """
 
     serializer_class = EventTypeSerializer
-    queryset = sorted(Event.all(), key=lambda event: event.name)
+    queryset = EventType.all()
 
 
 class APIEventListView(generics.ListAPIView):

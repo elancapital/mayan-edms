@@ -6,6 +6,10 @@ from django.utils.translation import ugettext_lazy as _
 
 
 class EventTypeUserRelationshipForm(forms.Form):
+    namespace = forms.CharField(
+        label=_('Namespace'), required=False,
+        widget=forms.TextInput(attrs={'readonly': 'readonly'})
+    )
     label = forms.CharField(
         label=_('Label'), required=False,
         widget=forms.TextInput(attrs={'readonly': 'readonly'})
@@ -23,7 +27,8 @@ class EventTypeUserRelationshipForm(forms.Form):
             *args, **kwargs
         )
 
-        self.fields['label'].initial = self.initial['stored_event_type'].__str__
+        self.fields['namespace'].initial = self.initial['stored_event_type'].namespace
+        self.fields['label'].initial = self.initial['stored_event_type'].label
 
         relationship = self.initial['stored_event_type'].event_subscriptions.filter(
             user=self.initial['user']
