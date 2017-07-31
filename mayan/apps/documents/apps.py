@@ -23,7 +23,9 @@ from converter.permissions import (
     permission_transformation_delete, permission_transformation_edit,
     permission_transformation_view,
 )
-from events.links import link_events_for_object
+from events.links import (
+    link_events_for_object, link_object_event_types_user_subcriptions_list
+)
 from events.permissions import permission_events_view
 from mayan.celery import app
 from navigation import SourceColumn
@@ -443,8 +445,11 @@ class DocumentsApp(MayanAppConfig):
             links=(link_document_properties,), sources=(Document,), position=2
         )
         menu_facet.bind_links(
-            links=(link_events_for_object, link_document_version_list,),
-            sources=(Document,), position=2
+            links=(
+                link_events_for_object,
+                link_object_event_types_user_subcriptions_list,
+                link_document_version_list,
+            ), sources=(Document,), position=2
         )
         menu_facet.bind_links(links=(link_document_pages,), sources=(Document,))
 

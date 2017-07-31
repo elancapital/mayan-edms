@@ -7,7 +7,8 @@ from .api_views import (
 )
 from .views import (
     EventListView, EventTypeSubscriptionListView, NotificationListView,
-    NotificationMarkRead, ObjectEventListView, VerbEventListView
+    NotificationMarkRead, ObjectEventListView,
+    ObjectEventTypeSubscriptionListView, VerbEventListView
 )
 
 urlpatterns = [
@@ -23,6 +24,11 @@ urlpatterns = [
     url(
         r'^notifications/(?P<pk>\d+)/mark_read/$',
         NotificationMarkRead.as_view(), name='notification_mark_read'
+    ),
+    url(
+        r'^user/(?P<app_label>[-\w]+)/(?P<model>[-\w]+)/(?P<object_id>\d+)/subscriptions/$',
+        ObjectEventTypeSubscriptionListView.as_view(),
+        name='object_event_types_user_subcriptions_list'
     ),
     url(
         r'^user/event_types/subscriptions/$',

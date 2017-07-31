@@ -42,6 +42,3 @@ class Migration(migrations.Migration):
     operations = [
         migrations.RunPython(update_event_types_names),
     ]
-
-
-

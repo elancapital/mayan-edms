@@ -15,7 +15,9 @@ from common.utils import encapsulate
 from common.views import SingleObjectListView
 
 from .classes import EventType
-from .forms import EventTypeUserRelationshipFormSet
+from .forms import (
+    EventTypeUserRelationshipFormSet, ObjectEventTypeUserRelationshipFormSet
+)
 from .models import StoredEventType
 from .permissions import permission_events_view
 from .widgets import event_object_link
@@ -157,6 +159,79 @@ class ObjectEventListView(EventListView):
 
     def get_queryset(self):
         return any_stream(self.content_object)
+
+
+class ObjectEventTypeSubscriptionListView(FormView):
+    form_class = ObjectEventTypeUserRelationshipFormSet
+    submodel = StoredEventType
+
+    def dispatch(self, *args, **kwargs):
+        EventType.refresh()
+        return super(ObjectEventTypeSubscriptionListView, self).dispatch(*args, **kwargs)
+
+    def form_valid(self, form):
+        try:
+            for instance in form:
+                instance.save()
+        except Exception as exception:
+            messages.error(
+                self.request,
+                _('Error updating object event subscription; %s') % exception
+            )
+        else:
+            messages.success(
+                self.request, _('Object event subscriptions updated successfully')
+            )
+
+        return super(
+            ObjectEventTypeSubscriptionListView, self
+        ).form_valid(form=form)
+
+    def get_object(self):
+        object_content_type = get_object_or_404(
+            ContentType, app_label=self.kwargs['app_label'],
+            model=self.kwargs['model']
+        )
+
+        try:
+            content_object = object_content_type.get_object_for_this_type(
+                pk=self.kwargs['object_id']
+            )
+        except object_content_type.model_class().DoesNotExist:
+            raise Http404
+
+        AccessControlList.objects.check_access(
+            permissions=permission_events_view, user=self.request.user,
+            obj=content_object
+        )
+
+        return content_object
+
+    def get_extra_context(self):
+        return {
+            'form_display_mode_table': True,
+            'object': self.get_object(),
+            'title': _(
+                'Event subscriptions for: %s'
+            ) % self.get_object()
+        }
+
+    def get_initial(self):
+        obj = self.get_object()
+        initial = []
+
+        for element in self.get_queryset():
+            initial.append({
+                'user': self.request.user,
+                'object': obj,
+                'stored_event_type': element,
+            })
+        return initial
+
+    def get_queryset(self):
+        # Return the queryset by name from the sorted list of the class
+        event_type_ids = [event_type.id for event_type in EventType.all()]
+        return self.submodel.objects.filter(name__in=event_type_ids)
 
 
 class VerbEventListView(SingleObjectListView):

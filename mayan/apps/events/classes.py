@@ -6,7 +6,6 @@ from django.apps import apps
 from django.contrib.auth import get_user_model
 from django.core.exceptions import PermissionDenied
 from django.utils.encoding import force_text, python_2_unicode_compatible
-from django.utils.translation import ugettext_lazy as _
 
 from actstream import action
 
@@ -98,6 +97,9 @@ class EventType(object):
         Action = apps.get_model(
             app_label='actstream', model_name='Action'
         )
+        ContentType = apps.get_model(
+            app_label='contenttypes', model_name='ContentType'
+        )
         Notification = apps.get_model(
             app_label='events', model_name='Notification'
         )
@@ -123,3 +125,23 @@ class EventType(object):
                                 Notification.objects.create(action=result, user=user)
                         else:
                             Notification.objects.create(action=result, user=user)
+
+                    if result.target:
+                        content_type = ContentType.objects.get_for_model(model=result.target)
+
+                        relationship = user.object_subscriptions.filter(
+                            content_type=content_type,
+                            object_id=result.target.pk,
+                            stored_event_type__name=result.verb
+                        )
+
+                        if relationship.exists():
+                            try:
+                                AccessControlList.objects.check_access(
+                                    permissions=permission_events_view,
+                                    user=user, obj=result.target
+                                )
+                            except PermissionDenied:
+                                pass
+                            else:
+                                Notification.objects.create(action=result, user=user)
