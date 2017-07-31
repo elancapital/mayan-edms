@@ -9,7 +9,7 @@ from common.serializers import ContentTypeSerializer
 from rest_api.fields import DynamicSerializerField
 
 from .classes import Event
-from .models import EventType
+from .models import StoredEventType
 
 
 class EventTypeSerializer(serializers.Serializer):
@@ -21,7 +21,7 @@ class EventTypeSerializer(serializers.Serializer):
             return super(EventTypeSerializer, self).to_representation(
                 instance
             )
-        elif isinstance(instance, EventType):
+        elif isinstance(instance, StoredEventType):
             return super(EventTypeSerializer, self).to_representation(
                 instance.get_class()
             )

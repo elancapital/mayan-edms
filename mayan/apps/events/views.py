@@ -16,7 +16,7 @@ from common.views import SingleObjectListView
 
 from .classes import Event
 from .forms import EventTypeUserRelationshipFormSet
-from .models import EventType
+from .models import StoredEventType
 from .permissions import permission_events_view
 from .widgets import event_object_link
 
@@ -45,7 +45,7 @@ class EventListView(SingleObjectListView):
 class EventTypeSubscriptionListView(FormView):
     form_class = EventTypeUserRelationshipFormSet
     main_model = 'user'
-    submodel = EventType
+    submodel = StoredEventType
 
     def form_valid(self, form):
         try:
@@ -85,7 +85,7 @@ class EventTypeSubscriptionListView(FormView):
             initial.append({
                 'user': obj,
                 'main_model': self.main_model,
-                'event_type': element,
+                'stored_event_type': element,
             })
         return initial
 

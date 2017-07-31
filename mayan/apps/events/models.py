@@ -11,14 +11,14 @@ from .classes import Event
 
 
 @python_2_unicode_compatible
-class EventType(models.Model):
+class StoredEventType(models.Model):
     name = models.CharField(
         max_length=64, unique=True, verbose_name=_('Name')
     )
 
     class Meta:
-        verbose_name = _('Event type')
-        verbose_name_plural = _('Event types')
+        verbose_name = _('Stored event type')
+        verbose_name_plural = _('Stored event types')
 
     def __str__(self):
         return force_text(self.get_class())
@@ -33,8 +33,8 @@ class EventSubscription(models.Model):
         settings.AUTH_USER_MODEL, db_index=True, on_delete=models.CASCADE,
         related_name='event_subscriptions', verbose_name=_('User')
     )
-    event_type = models.ForeignKey(
-        EventType, on_delete=models.CASCADE,
+    stored_event_type = models.ForeignKey(
+        StoredEventType, on_delete=models.CASCADE,
         related_name='event_subscriptions', verbose_name=_('Event type')
     )
 
@@ -43,7 +43,7 @@ class EventSubscription(models.Model):
         verbose_name_plural = _('Event subscriptions')
 
     def __str__(self):
-        return force_text(self.event_type)
+        return force_text(self.stored_event_type)
 
 
 @python_2_unicode_compatible

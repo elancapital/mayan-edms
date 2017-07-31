@@ -23,9 +23,9 @@ class EventTypeUserRelationshipForm(forms.Form):
             *args, **kwargs
         )
 
-        self.fields['label'].initial = self.initial['event_type'].__str__
+        self.fields['label'].initial = self.initial['stored_event_type'].__str__
 
-        relationship = self.initial['event_type'].event_subscriptions.filter(
+        relationship = self.initial['stored_event_type'].event_subscriptions.filter(
             user=self.initial['user']
         )
         if relationship.exists():
@@ -34,7 +34,7 @@ class EventTypeUserRelationshipForm(forms.Form):
             self.fields['relationship'].initial = 'none'
 
     def save(self):
-        relationship = self.initial['event_type'].event_subscriptions.filter(
+        relationship = self.initial['stored_event_type'].event_subscriptions.filter(
             user=self.initial['user']
         )
 
@@ -43,7 +43,7 @@ class EventTypeUserRelationshipForm(forms.Form):
         elif self.cleaned_data['relationship'] == 'subscribed':
             if not relationship.exists():
                 relationship.create(
-                    event_type=self.initial['event_type'],
+                    stored_event_type=self.initial['stored_event_type'],
                     user=self.initial['user']
                 )
 

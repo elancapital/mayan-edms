@@ -26,8 +26,8 @@ class EventsApp(MayanAppConfig):
     def ready(self):
         super(EventsApp, self).ready()
         Action = apps.get_model(app_label='actstream', model_name='Action')
-        EventType = self.get_model(model_name='EventType')
         Notification = self.get_model(model_name='Notification')
+        StoredEventType = self.get_model(model_name='StoredEventType')
 
         APIEndPoint(app=self, version_string='1')
 
@@ -41,7 +41,7 @@ class EventsApp(MayanAppConfig):
         )
 
         SourceColumn(
-            source=EventType, label=_('Label'), attribute='__str__'
+            source=StoredEventType, label=_('Label'), attribute='__str__'
         )
 
         SourceColumn(

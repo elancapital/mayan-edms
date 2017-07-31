@@ -31,21 +31,21 @@ class Event(object):
     def __init__(self, name, label):
         self.name = name
         self.label = label
-        self.event_type = None
+        self.stored_event_type = None
         self.__class__._registry[name] = self
 
     def __str__(self):
         return force_text(self.label)
 
     def get_type(self):
-        if not self.event_type:
-            EventType = apps.get_model('events', 'EventType')
+        if not self.stored_event_type:
+            StoredEventType = apps.get_model('events', 'StoredEventType')
 
-            self.event_type, created = EventType.objects.get_or_create(
+            self.stored_event_type, created = StoredEventType.objects.get_or_create(
                 name=self.name
             )
 
-        return self.event_type
+        return self.stored_event_type
 
     def commit(self, actor=None, action_object=None, target=None):
         AccessControlList = apps.get_model(
@@ -58,9 +58,9 @@ class Event(object):
             app_label='events', model_name='Notification'
         )
 
-        if not self.event_type:
-            EventType = apps.get_model('events', 'EventType')
-            self.event_type, created = EventType.objects.get_or_create(
+        if not self.stored_event_type:
+            StoredEventType = apps.get_model('events', 'StoredEventType')
+            self.stored_stored_event_type, created = StoredEventType.objects.get_or_create(
                 name=self.name
             )
 
@@ -72,7 +72,7 @@ class Event(object):
         for handler, result in results:
             if isinstance(result, Action):
                 for user in get_user_model().objects.all():
-                    if user.event_subscriptions.filter(event_type__name=result.verb).exists():
+                    if user.event_subscriptions.filter(stored_event_type__name=result.verb).exists():
                         if result.target:
                             try:
                                 AccessControlList.objects.check_access(
