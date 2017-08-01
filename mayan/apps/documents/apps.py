@@ -575,3 +575,4 @@ class DocumentsApp(MayanAppConfig):
 
         registry.register(DeletedDocument)
         registry.register(Document)
+        registry.register(DocumentType)

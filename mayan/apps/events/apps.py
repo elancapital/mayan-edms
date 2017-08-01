@@ -59,7 +59,7 @@ class EventsApp(MayanAppConfig):
             func=lambda context: event_type_link(context['object'].action)
         )
         SourceColumn(
-            source=Notification, label=_('Object'),
+            source=Notification, label=_('Target'),
             func=lambda context: event_object_link(context['object'].action)
         )
         SourceColumn(

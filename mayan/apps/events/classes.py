@@ -116,6 +116,8 @@ class EventType(object):
         for handler, result in results:
             if isinstance(result, Action):
                 for user in get_user_model().objects.all():
+                    notification = None
+
                     if user.event_subscriptions.filter(stored_event_type__name=result.verb).exists():
                         if result.target:
                             try:
@@ -126,9 +128,9 @@ class EventType(object):
                             except PermissionDenied:
                                 pass
                             else:
-                                Notification.objects.create(action=result, user=user)
+                                notification = Notification.objects.create(action=result, user=user)
                         else:
-                            Notification.objects.create(action=result, user=user)
+                            notification = Notification.objects.create(action=result, user=user)
 
                     if result.target:
                         content_type = ContentType.objects.get_for_model(model=result.target)
@@ -148,7 +150,26 @@ class EventType(object):
                             except PermissionDenied:
                                 pass
                             else:
-                                Notification.objects.create(action=result, user=user)
+                                notification = Notification.objects.create(action=result, user=user)
+                    if not notification and result.action_object:
+                        content_type = ContentType.objects.get_for_model(model=result.action_object)
+
+                        relationship = user.object_subscriptions.filter(
+                            content_type=content_type,
+                            object_id=result.action_object.pk,
+                            stored_event_type__name=result.verb
+                        )
+
+                        if relationship.exists():
+                            try:
+                                AccessControlList.objects.check_access(
+                                    permissions=permission_events_view,
+                                    user=user, obj=result.action_object
+                                )
+                            except PermissionDenied:
+                                pass
+                            else:
+                                notification = Notification.objects.create(action=result, user=user)
 
 
 class ModelEventType(object):
