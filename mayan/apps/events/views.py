@@ -125,6 +125,15 @@ class NotificationMarkRead(SimpleView):
         return self.request.user.notifications.all()
 
 
+class NotificationMarkReadAll(SimpleView):
+    def dispatch(self, *args, **kwargs):
+        self.get_queryset().update(read=True)
+        return HttpResponseRedirect(reverse('events:user_notifications_list'))
+
+    def get_queryset(self):
+        return self.request.user.notifications.all()
+
+
 class ObjectEventListView(EventListView):
     view_permissions = None
 

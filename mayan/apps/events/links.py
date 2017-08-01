@@ -47,8 +47,11 @@ link_event_types_subscriptions_list = Link(
     view='events:event_types_user_subcriptions_list'
 )
 link_notification_mark_read = Link(
-    args='object.pk', text=_('Mark as read'),
+    args='object.pk', text=_('Mark as seen'),
     view='events:notification_mark_read'
+)
+link_notification_mark_read_all = Link(
+    text=_('Mark all as seen'), view='events:notification_mark_read_all'
 )
 link_object_event_types_user_subcriptions_list = Link(
     kwargs=get_kwargs_factory('resolved_object'),
