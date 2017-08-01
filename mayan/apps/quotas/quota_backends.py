@@ -9,7 +9,46 @@ from documents.models import Document, DocumentVersion
 from .classes import QuotaBackend
 from .exceptions import QuotaExceeded
 
-__all__ = ('DocumentStorageQuota',)
+__all__ = ('DocumentStorageQuota', 'DocumentCountQuota',)
+
+
+class DocumentCountQuota(QuotaBackend):
+    fields = (
+        {
+            'name': 'documents_limit', 'label': _('Documents limit'),
+            'class': 'django.forms.IntegerField',
+            'help_text': _('Maximum number of documents')
+        },
+    )
+    label = _('Document count')
+    sender = Document
+    signal = pre_save
+
+    def __init__(self, documents_limit):
+        self.documents_limit = documents_limit
+
+    def _allowed(self):
+        return self.documents_limit
+
+    def _usage(self, **kwargs):
+        return Document.passthrough.all().count()
+
+    def display(self):
+        return _(
+            'Maximum document count: %(total_documents)s'
+        ) % {
+            'total_documents': self._allowed(),
+        }
+
+    def process(self, **kwargs):
+        if self._usage() > self._allowed():
+            raise QuotaExceeded('Document count exceeded')
+
+    def usage(self):
+        return _('%(usage)s out of %(allowed)s') % {
+            'usage': self._usage(),
+            'allowed': self._allowed()
+        }
 
 
 class DocumentStorageQuota(QuotaBackend):
