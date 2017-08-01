@@ -161,8 +161,6 @@ class ModelEventType(object):
 
     @classmethod
     def register(cls, model, event_types):
-        from django.contrib.contenttypes.fields import GenericRelation
-
         cls._registry.setdefault(model, [])
         for event_type in event_types:
             cls._registry[model].append(event_type)
@@ -170,8 +168,6 @@ class ModelEventType(object):
         StoredEventType = apps.get_model(
             app_label='events', model_name='StoredEventType'
         )
-
-        model.add_to_class('event_types', GenericRelation(StoredEventType))
 
     @classmethod
     def get_for_class(cls, klass):
