@@ -40,6 +40,9 @@ class EventTypeNamespace(object):
         self.event_types.append(event_type)
         return event_type
 
+    def get_event_types(self):
+        return EventType.sort(event_type_list=self.event_types)
+
 
 @python_2_unicode_compatible
 class EventType(object):
@@ -185,10 +188,6 @@ class ModelEventType(object):
         cls._registry.setdefault(model, [])
         for event_type in event_types:
             cls._registry[model].append(event_type)
-
-        StoredEventType = apps.get_model(
-            app_label='events', model_name='StoredEventType'
-        )
 
     @classmethod
     def get_for_class(cls, klass):
