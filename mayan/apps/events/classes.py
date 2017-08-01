@@ -48,9 +48,7 @@ class EventType(object):
     @classmethod
     def all(cls):
         # Return sorted permisions by namespace.name
-        return sorted(
-            cls._registry.values(), key=lambda x: x.namespace.name
-        )
+        return EventType.sort(event_type_list=cls._registry.values())
 
     @classmethod
     def get(cls, name):
@@ -89,6 +87,12 @@ class EventType(object):
             )
 
         return self.stored_event_type
+
+    @staticmethod
+    def sort(event_type_list):
+        return sorted(
+            event_type_list, key=lambda x: (x.namespace.label, x.label)
+        )
 
     def commit(self, actor=None, action_object=None, target=None):
         AccessControlList = apps.get_model(
@@ -145,3 +149,68 @@ class EventType(object):
                                 pass
                             else:
                                 Notification.objects.create(action=result, user=user)
+
+
+class ModelEventType(object):
+    """
+    Class to allow matching a model to a specific set of events.
+    """
+    _registry = {}
+    _proxies = {}
+    _inheritances = {}
+
+    @classmethod
+    def register(cls, model, event_types):
+        from django.contrib.contenttypes.fields import GenericRelation
+
+        cls._registry.setdefault(model, [])
+        for event_type in event_types:
+            cls._registry[model].append(event_type)
+
+        StoredEventType = apps.get_model(
+            app_label='events', model_name='StoredEventType'
+        )
+
+        model.add_to_class('event_types', GenericRelation(StoredEventType))
+
+    @classmethod
+    def get_for_class(cls, klass):
+        return cls._registry.get(klass, ())
+
+    @classmethod
+    def get_for_instance(cls, instance):
+        StoredEventType = apps.get_model(
+            app_label='events', model_name='StoredEventType'
+        )
+
+        events = []
+
+        class_events = cls._registry.get(type(instance))
+
+        if class_events:
+            events.extend(class_events)
+
+        proxy = cls._proxies.get(type(instance))
+
+        if proxy:
+            events.extend(cls._registry.get(proxy))
+
+        pks = [
+            event.id for event in set(events)
+        ]
+
+        return EventType.sort(
+            event_type_list=StoredEventType.objects.filter(name__in=pks)
+        )
+
+    @classmethod
+    def get_inheritance(cls, model):
+        return cls._inheritances[model]
+
+    @classmethod
+    def register_proxy(cls, source, model):
+        cls._proxies[model] = source
+
+    @classmethod
+    def register_inheritance(cls, model, related):
+        cls._inheritances[model] = related

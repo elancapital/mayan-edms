@@ -46,18 +46,20 @@ link_event_types_subscriptions_list = Link(
     icon='fa fa-list-ol', text=_('Event subscriptions'),
     view='events:event_types_user_subcriptions_list'
 )
-
 link_notification_mark_read = Link(
     args='object.pk', text=_('Mark as read'),
     view='events:notification_mark_read'
 )
-
 link_object_event_types_user_subcriptions_list = Link(
     kwargs=get_kwargs_factory('resolved_object'),
     permissions=(permission_events_view,), text=_('Subscriptions'),
     view='events:object_event_types_user_subcriptions_list',
 )
-
+link_object_event_types_user_subcriptions_list_with_icon = Link(
+    kwargs=get_kwargs_factory('resolved_object'), icon='fa fa-rss',
+    permissions=(permission_events_view,), text=_('Subscriptions'),
+    view='events:object_event_types_user_subcriptions_list',
+)
 link_user_notifications_list = Link(
     icon='fa fa-bell', text=get_notification_count,
     view='events:user_notifications_list'

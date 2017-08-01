@@ -14,7 +14,7 @@ from common.generics import FormView, SimpleView
 from common.utils import encapsulate
 from common.views import SingleObjectListView
 
-from .classes import EventType
+from .classes import EventType, ModelEventType
 from .forms import (
     EventTypeUserRelationshipFormSet, ObjectEventTypeUserRelationshipFormSet
 )
@@ -163,7 +163,6 @@ class ObjectEventListView(EventListView):
 
 class ObjectEventTypeSubscriptionListView(FormView):
     form_class = ObjectEventTypeUserRelationshipFormSet
-    submodel = StoredEventType
 
     def dispatch(self, *args, **kwargs):
         EventType.refresh()
@@ -229,9 +228,7 @@ class ObjectEventTypeSubscriptionListView(FormView):
         return initial
 
     def get_queryset(self):
-        # Return the queryset by name from the sorted list of the class
-        event_type_ids = [event_type.id for event_type in EventType.all()]
-        return self.submodel.objects.filter(name__in=event_type_ids)
+        return ModelEventType.get_for_instance(instance=self.get_object())
 
 
 class VerbEventListView(SingleObjectListView):
