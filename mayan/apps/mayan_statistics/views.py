@@ -1,7 +1,7 @@
 from __future__ import unicode_literals
 
-from django.core.urlresolvers import reverse
 from django.http import Http404
+from django.urls import reverse
 from django.utils.translation import ugettext_lazy as _
 
 from common.generics import ConfirmView, SimpleView, SingleObjectListView
@@ -19,7 +19,7 @@ class NamespaceListView(SingleObjectListView):
     template_name = 'appearance/generic_list.html'
     view_permission = permission_statistics_view
 
-    def get_queryset(self):
+    def get_object_list(self):
         return StatisticNamespace.get_all()
 
 
@@ -36,7 +36,7 @@ class NamespaceDetailView(SingleObjectListView):
     def get_namespace(self):
         return StatisticNamespace.get(self.kwargs['slug'])
 
-    def get_queryset(self):
+    def get_object_list(self):
         return self.get_namespace().statistics
 
 

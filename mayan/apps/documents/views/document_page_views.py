@@ -4,9 +4,8 @@ import logging
 
 from django.conf import settings
 from django.contrib import messages
-from django.core.urlresolvers import resolve, reverse
-from django.http import HttpResponseRedirect
-from django.shortcuts import get_object_or_404
+from django.shortcuts import get_object_or_404, resolve_url
+from django.urls import reverse
 from django.utils.http import urlencode
 from django.utils.translation import ugettext_lazy as _
 from django.views.generic import RedirectView
@@ -14,6 +13,7 @@ from django.views.generic import RedirectView
 from acls.models import AccessControlList
 from common.compat import urlparse
 from common.generics import SimpleView, SingleObjectListView
+from common.utils import resolve
 from converter.literals import DEFAULT_ROTATION, DEFAULT_ZOOM_LEVEL
 
 from ..forms import DocumentPageForm
@@ -41,14 +41,119 @@ class DocumentPageListView(SingleObjectListView):
     def get_document(self):
         return get_object_or_404(Document, pk=self.kwargs['pk'])
 
-    def get_queryset(self):
-        return self.get_document().pages.all()
-
     def get_extra_context(self):
         return {
+            'list_as_items': True,
             'object': self.get_document(),
             'title': _('Pages for document: %s') % self.get_document(),
         }
+
+    def get_object_list(self):
+        return self.get_document().pages.all()
+
+
+class DocumentPageNavigationBase(RedirectView):
+    def dispatch(self, request, *args, **kwargs):
+        document_page = self.get_object()
+
+        AccessControlList.objects.check_access(
+            permissions=permission_document_view, user=request.user,
+            obj=document_page.document
+        )
+
+        return super(DocumentPageNavigationBase, self).dispatch(
+            request, *args, **kwargs
+        )
+
+    def get_object(self):
+        return get_object_or_404(DocumentPage, pk=self.kwargs['pk'])
+
+    def get_redirect_url(self, *args, **kwargs):
+        parse_result = urlparse.urlparse(
+            self.request.META.get(
+                'HTTP_REFERER', resolve_url(
+                    settings.LOGIN_REDIRECT_URL
+                )
+            )
+        )
+
+        query_dict = urlparse.parse_qs(parse_result.query)
+
+        resolver_match = resolve(parse_result.path)
+
+        # Default is to stay on the same view
+        url = parse_result.path, query_dict
+
+        new_object = self.navigation_function()
+
+        # Inject new_object pk in the referer's view pk or object_id kwargs
+        if 'pk' in resolver_match.kwargs:
+            resolver_match.kwargs['pk'] = new_object.pk
+            url = reverse(
+                resolver_match.view_name, kwargs=resolver_match.kwargs
+            )
+        elif 'object_id' in resolver_match.kwargs:
+            resolver_match.kwargs['object_id'] = new_object.pk
+            url = reverse(
+                resolver_match.view_name, kwargs=resolver_match.kwargs
+            )
+        else:
+            messages.warning(
+                self.request, _(
+                    'Unknown view keyword argument schema, unable to '
+                    'redirect.'
+                )
+            )
+
+        return '{}?{}'.format(url, urlencode(query_dict, doseq=True))
+
+
+class DocumentPageNavigationFirst(DocumentPageNavigationBase):
+    def navigation_function(self):
+        document_page = self.get_object()
+
+        return document_page.siblings.first()
+
+
+class DocumentPageNavigationLast(DocumentPageNavigationBase):
+    def navigation_function(self):
+        document_page = self.get_object()
+
+        return document_page.siblings.last()
+
+
+class DocumentPageNavigationNext(DocumentPageNavigationBase):
+    def navigation_function(self):
+        document_page = self.get_object()
+
+        try:
+            document_page = document_page.siblings.get(
+                page_number=document_page.page_number + 1
+            )
+        except DocumentPage.DoesNotExist:
+            messages.warning(
+                self.request, _('There are no more pages in this document')
+            )
+        finally:
+            return document_page
+
+
+class DocumentPageNavigationPrevious(DocumentPageNavigationBase):
+    def navigation_function(self):
+        document_page = self.get_object()
+
+        try:
+            document_page = document_page.siblings.get(
+                page_number=document_page.page_number - 1
+            )
+        except DocumentPage.DoesNotExist:
+            messages.warning(
+                self.request, _(
+                    'You are already at the first page of this document'
+                )
+            )
+        finally:
+            return document_page
 
 
 class DocumentPageView(SimpleView):
@@ -98,70 +203,6 @@ class DocumentPageViewResetView(RedirectView):
     pattern_name = 'documents:document_page_view'
 
 
-def document_page_navigation_next(request, document_page_id):
-    document_page = get_object_or_404(DocumentPage, pk=document_page_id)
-
-    AccessControlList.objects.check_access(
-        permissions=permission_document_view, user=request.user,
-        obj=document_page.document
-    )
-
-    view = resolve(urlparse.urlparse(request.META.get('HTTP_REFERER', reverse(settings.LOGIN_REDIRECT_URL))).path).view_name
-
-    if document_page.page_number >= document_page.siblings.count():
-        messages.warning(request, _('There are no more pages in this document'))
-        return HttpResponseRedirect(request.META.get('HTTP_REFERER', reverse(settings.LOGIN_REDIRECT_URL)))
-    else:
-        document_page = get_object_or_404(document_page.siblings, page_number=document_page.page_number + 1)
-        return HttpResponseRedirect('{0}?{1}'.format(reverse(view, args=(document_page.pk,)), request.GET.urlencode()))
-
-
-def document_page_navigation_previous(request, document_page_id):
-    document_page = get_object_or_404(DocumentPage, pk=document_page_id)
-
-    AccessControlList.objects.check_access(
-        permissions=permission_document_view, user=request.user,
-        obj=document_page.document
-    )
-
-    view = resolve(urlparse.urlparse(request.META.get('HTTP_REFERER', reverse(settings.LOGIN_REDIRECT_URL))).path).view_name
-
-    if document_page.page_number <= 1:
-        messages.warning(request, _('You are already at the first page of this document'))
-        return HttpResponseRedirect(request.META.get('HTTP_REFERER', reverse(settings.LOGIN_REDIRECT_URL)))
-    else:
-        document_page = get_object_or_404(document_page.siblings, page_number=document_page.page_number - 1)
-        return HttpResponseRedirect('{0}?{1}'.format(reverse(view, args=(document_page.pk,)), request.GET.urlencode()))
-
-
-def document_page_navigation_first(request, document_page_id):
-    document_page = get_object_or_404(DocumentPage, pk=document_page_id)
-    document_page = get_object_or_404(document_page.siblings, page_number=1)
-
-    AccessControlList.objects.check_access(
-        permissions=permission_document_view, user=request.user,
-        obj=document_page.document
-    )
-
-    view = resolve(urlparse.urlparse(request.META.get('HTTP_REFERER', reverse(settings.LOGIN_REDIRECT_URL))).path).view_name
-
-    return HttpResponseRedirect('{0}?{1}'.format(reverse(view, args=(document_page.pk,)), request.GET.urlencode()))
-
-
-def document_page_navigation_last(request, document_page_id):
-    document_page = get_object_or_404(DocumentPage, pk=document_page_id)
-    document_page = get_object_or_404(document_page.siblings, page_number=document_page.siblings.count())
-
-    AccessControlList.objects.check_access(
-        permissions=permission_document_view, user=request.user,
-        obj=document_page.document
-    )
-
-    view = resolve(urlparse.urlparse(request.META.get('HTTP_REFERER', reverse(settings.LOGIN_REDIRECT_URL))).path).view_name
-
-    return HttpResponseRedirect('{0}?{1}'.format(reverse(view, args=(document_page.pk,)), request.GET.urlencode()))
-
-
 class DocumentPageInteractiveTransformation(RedirectView):
     def dispatch(self, request, *args, **kwargs):
         object = self.get_object()
@@ -184,8 +225,9 @@ class DocumentPageInteractiveTransformation(RedirectView):
         )
 
         query_dict = {
-            'rotation': int(self.request.GET.get('rotation', DEFAULT_ROTATION)),
-            'zoom': int(self.request.GET.get('zoom', DEFAULT_ZOOM_LEVEL))
+            'rotation': int(
+                self.request.GET.get('rotation', DEFAULT_ROTATION)
+            ), 'zoom': int(self.request.GET.get('zoom', DEFAULT_ZOOM_LEVEL))
         }
 
         self.transformation_function(query_dict)

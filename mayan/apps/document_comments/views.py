@@ -1,7 +1,7 @@
 from __future__ import absolute_import, unicode_literals
 
-from django.core.urlresolvers import reverse
 from django.shortcuts import get_object_or_404
+from django.urls import reverse
 from django.utils.translation import ugettext_lazy as _
 
 from acls.models import AccessControlList
@@ -90,14 +90,6 @@ class DocumentCommentListView(SingleObjectListView):
     def get_document(self):
         return get_object_or_404(Document, pk=self.kwargs['pk'])
 
-    def get_queryset(self):
-        AccessControlList.objects.check_access(
-            permissions=permission_comment_view, user=self.request.user,
-            obj=self.get_document()
-        )
-
-        return self.get_document().comments.all()
-
     def get_extra_context(self):
         return {
             'hide_link': True,
@@ -105,3 +97,11 @@ class DocumentCommentListView(SingleObjectListView):
             'object': self.get_document(),
             'title': _('Comments for document: %s') % self.get_document(),
         }
+
+    def get_object_list(self):
+        AccessControlList.objects.check_access(
+            permissions=permission_comment_view, user=self.request.user,
+            obj=self.get_document()
+        )
+
+        return self.get_document().comments.all()

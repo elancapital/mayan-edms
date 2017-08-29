@@ -3,19 +3,20 @@ from __future__ import unicode_literals
 from django.conf import settings
 from django.contrib import messages
 from django.core.exceptions import PermissionDenied
-from django.core.urlresolvers import reverse
 from django.db.models.query import QuerySet
 from django.http import HttpResponseRedirect
+from django.shortcuts import resolve_url
 from django.utils.translation import ungettext, ugettext_lazy as _
 
 from permissions import Permission
 
 from acls.models import AccessControlList
 
+from .forms import DynamicForm
 
 __all__ = (
-    'DeleteExtraDataMixin', 'ExtraContextMixin', 'FormExtraKwargsMixin',
-    'MultipleObjectMixin', 'ObjectActionMixin',
+    'DeleteExtraDataMixin', 'DynamicFormViewMixin', 'ExtraContextMixin',
+    'FormExtraKwargsMixin', 'MultipleObjectMixin', 'ObjectActionMixin',
     'ObjectListPermissionFilterMixin', 'ObjectNameMixin',
     'ObjectPermissionCheckMixin', 'RedirectionMixin',
     'ViewPermissionCheckMixin'
@@ -34,20 +35,13 @@ class DeleteExtraDataMixin(object):
         return HttpResponseRedirect(success_url)
 
 
-class FormExtraKwargsMixin(object):
-    """
-    Mixin that allows a view to pass extra keyword arguments to forms
-    """
-
-    form_extra_kwargs = {}
-
-    def get_form_extra_kwargs(self):
-        return self.form_extra_kwargs
+class DynamicFormViewMixin(object):
+    form_class = DynamicForm
 
     def get_form_kwargs(self):
-        result = super(FormExtraKwargsMixin, self).get_form_kwargs()
-        result.update(self.get_form_extra_kwargs())
-        return result
+        data = super(DynamicFormViewMixin, self).get_form_kwargs()
+        data.update({'schema': self.get_form_schema()})
+        return data
 
 
 class ExtraContextMixin(object):
@@ -64,6 +58,22 @@ class ExtraContextMixin(object):
         context = super(ExtraContextMixin, self).get_context_data(**kwargs)
         context.update(self.get_extra_context())
         return context
+
+
+class FormExtraKwargsMixin(object):
+    """
+    Mixin that allows a view to pass extra keyword arguments to forms
+    """
+
+    form_extra_kwargs = {}
+
+    def get_form_extra_kwargs(self):
+        return self.form_extra_kwargs
+
+    def get_form_kwargs(self):
+        result = super(FormExtraKwargsMixin, self).get_form_kwargs()
+        result.update(self.get_form_extra_kwargs())
+        return result
 
 
 class MultipleInstanceActionMixin(object):
@@ -267,14 +277,14 @@ class RedirectionMixin(object):
         self.next_url = self.request.POST.get(
             'next', self.request.GET.get(
                 'next', post_action_redirect if post_action_redirect else self.request.META.get(
-                    'HTTP_REFERER', reverse(settings.LOGIN_REDIRECT_URL)
+                    'HTTP_REFERER', resolve_url(settings.LOGIN_REDIRECT_URL)
                 )
             )
         )
         self.previous_url = self.request.POST.get(
             'previous', self.request.GET.get(
                 'previous', action_cancel_redirect if action_cancel_redirect else self.request.META.get(
-                    'HTTP_REFERER', reverse(settings.LOGIN_REDIRECT_URL)
+                    'HTTP_REFERER', resolve_url(settings.LOGIN_REDIRECT_URL)
                 )
             )
         )

@@ -56,6 +56,22 @@ class DocumentPreviewForm(forms.Form):
     preview = forms.CharField(widget=DocumentPagesCarouselWidget())
 
 
+class DocumentVersionPreviewForm(forms.Form):
+    def __init__(self, *args, **kwargs):
+        document_version = kwargs.pop('instance', None)
+        super(DocumentVersionPreviewForm, self).__init__(*args, **kwargs)
+
+        self.fields['preview'].initial = document_version
+        try:
+            self.fields['preview'].label = _(
+                'Document pages (%d)'
+            ) % document_version.pages.count()
+        except AttributeError:
+            self.fields['preview'].label = _('Document version pages (%d)') % 0
+
+    preview = forms.CharField(widget=DocumentPagesCarouselWidget())
+
+
 class DocumentForm(forms.ModelForm):
     """
     Form sub classes from DocumentForm used only when editing a document
@@ -217,9 +233,34 @@ class DocumentDownloadForm(forms.Form):
             self.fields['compressed'].widget.attrs.update({'disabled': True})
 
 
+class DocumentVersionDownloadForm(DocumentDownloadForm):
+    preserve_extension = forms.BooleanField(
+        label=_('Preserve extension'), required=False,
+        help_text=_(
+            'Takes the file extension and moves it to the end of the '
+            'filename allowing operating systems that rely on file '
+            'extensions to open the downloaded document version correctly.'
+        )
+    )
+
+
 class DocumentPrintForm(forms.Form):
     page_group = forms.ChoiceField(
         choices=PAGE_RANGE_CHOICES, initial=PAGE_RANGE_ALL,
         widget=forms.RadioSelect
     )
     page_range = forms.CharField(label=_('Page range'), required=False)
+
+
+class DocumentPageNumberForm(forms.Form):
+    page = forms.ModelChoiceField(
+        help_text=_(
+            'Page number from which all the transformation will be cloned. '
+            'Existing transformations will be lost.'
+        ), queryset=None
+    )
+
+    def __init__(self, *args, **kwargs):
+        self.document = kwargs.pop('document')
+        super(DocumentPageNumberForm, self).__init__(*args, **kwargs)
+        self.fields['page'].queryset = self.document.pages.all()

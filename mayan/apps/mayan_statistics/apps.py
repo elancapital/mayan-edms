@@ -15,13 +15,14 @@ from .links import (
     link_statistics, link_view
 )
 from .licenses import *  # NOQA
+from .queues import *  # NOQA
 from .tasks import task_execute_statistic  # NOQA - Force registration of task
 
 
 class StatisticsApp(MayanAppConfig):
     app_namespace = 'statistics'
-    name = 'mayan_statistics'
-    test = True
+    has_tests = True
+    name = 'statistics'
     verbose_name = _('Statistics')
 
     def ready(self):

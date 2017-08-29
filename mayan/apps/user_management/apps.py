@@ -10,6 +10,7 @@ from common.widgets import two_state_template
 from metadata import MetadataLookup
 from navigation import SourceColumn
 from rest_api.classes import APIEndPoint
+from rest_api.fields import DynamicSerializerField
 
 from .links import (
     link_group_add, link_group_delete, link_group_edit, link_group_list,
@@ -18,6 +19,7 @@ from .links import (
     link_user_multiple_delete, link_user_multiple_set_password,
     link_user_set_password, link_user_setup
 )
+from .search import *  # NOQA
 
 
 def get_groups():
@@ -36,8 +38,8 @@ def get_users():
 
 class UserManagementApp(MayanAppConfig):
     app_url = 'accounts'
+    has_tests = True
     name = 'user_management'
-    test = True
     verbose_name = _('User management')
 
     def ready(self):
@@ -48,6 +50,10 @@ class UserManagementApp(MayanAppConfig):
         User = get_user_model()
 
         APIEndPoint(app=self, version_string='1')
+        DynamicSerializerField.add_serializer(
+            klass=get_user_model(),
+            serializer_class='user_management.serializers.UserSerializer'
+        )
 
         MetadataLookup(
             description=_('All the groups.'), name='groups',

@@ -4,9 +4,10 @@ import logging
 
 from django.contrib import messages
 from django.core.files import File
-from django.core.urlresolvers import reverse
 from django.http import HttpResponseRedirect
 from django.shortcuts import get_object_or_404
+from django.urls import reverse
+from django.utils.encoding import force_text
 from django.utils.translation import ugettext_lazy as _
 
 from acls.models import AccessControlList
@@ -110,9 +111,7 @@ class DocumentVersionDetachedSignatureCreateView(FormView):
 
     def get_extra_context(self):
         return {
-            'document': self.get_document_version().document,
-            'document_version': self.get_document_version(),
-            'navigation_object_list': ('document', 'document_version'),
+            'object': self.get_document_version(),
             'title': _(
                 'Sign document version "%s" with a detached signature'
             ) % self.get_document_version(),
@@ -211,9 +210,7 @@ class DocumentVersionEmbeddedSignatureCreateView(FormView):
 
     def get_extra_context(self):
         return {
-            'document': self.get_document_version().document,
-            'document_version': self.get_document_version(),
-            'navigation_object_list': ('document', 'document_version'),
+            'object': self.get_document_version(),
             'title': _(
                 'Sign document version "%s" with a embedded signature'
             ) % self.get_document_version(),
@@ -236,11 +233,7 @@ class DocumentVersionSignatureDeleteView(SingleObjectDeleteView):
 
     def get_extra_context(self):
         return {
-            'document': self.get_object().document_version.document,
-            'document_version': self.get_object().document_version,
-            'navigation_object_list': (
-                'document', 'document_version', 'signature'
-            ),
+            'object': self.get_object().document_version,
             'signature': self.get_object(),
             'title': _('Delete detached signature: %s') % self.get_object()
         }
@@ -259,13 +252,9 @@ class DocumentVersionSignatureDetailView(SingleObjectDetailView):
 
     def get_extra_context(self):
         return {
-            'document': self.get_object().document_version.document,
-            'document_version': self.get_object().document_version,
-            'signature': self.get_object(),
-            'navigation_object_list': (
-                'document', 'document_version', 'signature'
-            ),
             'hide_object': True,
+            'object': self.get_object().document_version,
+            'signature': self.get_object(),
             'title': _(
                 'Details for signature: %s'
             ) % self.get_object(),
@@ -284,7 +273,7 @@ class DocumentVersionSignatureDownloadView(SingleObjectDownloadView):
         signature = self.get_object()
 
         return DocumentVersionSignatureDownloadView.VirtualFile(
-            signature.signature_file, name=unicode(signature)
+            signature.signature_file, name=force_text(signature)
         )
 
 
@@ -304,16 +293,14 @@ class DocumentVersionSignatureListView(SingleObjectListView):
 
     def get_extra_context(self):
         return {
-            'document': self.get_document_version().document,
-            'document_version': self.get_document_version(),
-            'navigation_object_list': ('document', 'document_version'),
             'hide_object': True,
+            'object': self.get_document_version(),
             'title': _(
                 'Signatures for document version: %s'
             ) % self.get_document_version(),
         }
 
-    def get_queryset(self):
+    def get_object_list(self):
         return self.get_document_version().signatures.all()
 
 
@@ -336,9 +323,7 @@ class DocumentVersionSignatureUploadView(SingleObjectCreateView):
 
     def get_extra_context(self):
         return {
-            'document': self.get_document_version().document,
-            'document_version': self.get_document_version(),
-            'navigation_object_list': ('document', 'document_version'),
+            'object': self.get_document_version(),
             'title': _(
                 'Upload detached signature for document version: %s'
             ) % self.get_document_version(),

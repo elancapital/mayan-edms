@@ -58,6 +58,7 @@ INSTALLED_APPS = (
     'corsheaders',
     'djcelery',
     'formtools',
+    'mathfilters',
     'mptt',
     'pure_pagination',
     'rest_framework',
@@ -79,14 +80,18 @@ INSTALLED_APPS = (
     'smart_settings',
     'user_management',
     # Mayan EDMS
+    'cabinets',
     'checkouts',
     'document_comments',
     'document_indexing',
+    'document_parsing',
     'document_signatures',
     'document_states',
     'documents',
     'events',
-    'folders',
+    # Disable the folders app by default
+    # Will be removed in the next version
+    # 'folders',
     'linking',
     'mailer',
     'metadata',
@@ -98,11 +103,13 @@ INSTALLED_APPS = (
     'mayan_statistics',
     'storage',
     'tags',
+    'task_manager',
     # Placed after rest_api to allow template overriding
     'rest_framework_swagger',
 )
 
 MIDDLEWARE_CLASSES = (
+    'common.middleware.error_logging.ErrorLoggingMiddleware',
     'django.middleware.security.SecurityMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
     'corsheaders.middleware.CorsMiddleware',
@@ -234,6 +241,8 @@ STATICFILES_FINDERS = (
     'compressor.finders.CompressorFinder',
 )
 
+TEST_RUNNER = 'common.tests.runner.MayanTestRunner'
+
 # --------- Django compressor -------------
 COMPRESS_CSS_FILTERS = (
     'compressor.filters.css_default.CssAbsoluteFilter',
@@ -248,9 +257,9 @@ INTERNAL_IPS = ('127.0.0.1',)
 # ---------- Django REST framework -----------
 REST_FRAMEWORK = {
     'DEFAULT_AUTHENTICATION_CLASSES': (
-        'rest_framework.authentication.BasicAuthentication',
-        'rest_framework.authentication.TokenAuthentication',
         'rest_framework.authentication.SessionAuthentication',
+        'rest_framework.authentication.TokenAuthentication',
+        'rest_framework.authentication.BasicAuthentication',
     ),
     'PAGE_SIZE': 10,
 }
@@ -272,7 +281,6 @@ CELERY_ROUTES = {}
 CELERY_TASK_SERIALIZER = 'json'
 CELERY_TIMEZONE = 'UTC'
 CELERYBEAT_SCHEDULER = 'djcelery.schedulers.DatabaseScheduler'
-TEST_RUNNER = 'djcelery.contrib.test_runner.CeleryTestSuiteRunner'
 # ------------ CORS ------------
 CORS_ORIGIN_ALLOW_ALL = True
 # ------ Django REST Swagger -----

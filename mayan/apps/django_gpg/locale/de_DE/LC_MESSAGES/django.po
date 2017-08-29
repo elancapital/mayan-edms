@@ -3,7 +3,6 @@
 # This file is distributed under the same license as the PACKAGE package.
 # 
 # Translators:
-# Translators:
 # Mathias Behrle <mbehrle@m9s.biz>, 2014
 # Stefan Lodders <sl@suchreflex.de>, 2012
 # tetjarediske <tetja.rediske@googlemail.com>, 2012
@@ -12,7 +11,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: Mayan EDMS\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2016-11-23 02:53-0400\n"
+"POT-Creation-Date: 2017-08-27 12:45-0400\n"
 "PO-Revision-Date: 2016-05-20 21:54+0000\n"
 "Last-Translator: Tobias Paepke <tobias.paepke@paepke.net>\n"
 "Language-Team: German (Germany) (http://www.transifex.com/rosarior/mayan-edms/language/de_DE/)\n"
@@ -22,35 +21,35 @@ msgstr ""
 "Language: de_DE\n"
 "Plural-Forms: nplurals=2; plural=(n != 1);\n"
 
-#: apps.py:30
+#: apps.py:31
 msgid "Django GPG"
 msgstr "Django GPG"
 
-#: apps.py:73 apps.py:76 forms.py:17
+#: apps.py:47 apps.py:50 forms.py:17
 msgid "Key ID"
 msgstr "Schlüssel-ID"
 
-#: apps.py:74 apps.py:87 forms.py:19 models.py:47
+#: apps.py:48 apps.py:61 forms.py:19 models.py:52
 msgid "User ID"
 msgstr "Benutzer-ID"
 
-#: apps.py:77 forms.py:34 models.py:50
+#: apps.py:51 forms.py:34 models.py:55
 msgid "Type"
 msgstr "Typ"
 
-#: apps.py:79 forms.py:23 models.py:31
+#: apps.py:53 forms.py:23 models.py:36
 msgid "Creation date"
 msgstr "Erstellungsdatum"
 
-#: apps.py:82 forms.py:27 models.py:35
+#: apps.py:56 forms.py:27 models.py:40
 msgid "Expiration date"
 msgstr "Ablaufdatum"
 
-#: apps.py:83
+#: apps.py:57
 msgid "No expiration"
 msgstr "Ohne Ablaufdatum"
 
-#: apps.py:85 forms.py:32 models.py:42
+#: apps.py:59 forms.py:32 models.py:47
 msgid "Length"
 msgstr "Länge"
 
@@ -58,11 +57,11 @@ msgstr "Länge"
 msgid "None"
 msgstr "Keine"
 
-#: forms.py:31 models.py:39
+#: forms.py:31 models.py:44
 msgid "Fingerprint"
 msgstr "Fingerabdruck"
 
-#: forms.py:33 models.py:45
+#: forms.py:33 models.py:50
 msgid "Algorithm"
 msgstr "Verfahren"
 
@@ -99,7 +98,6 @@ msgid "Key management"
 msgstr "Schlüssel-Management"
 
 #: links.py:37
-#| msgid "Import key"
 msgid "Upload key"
 msgstr "Schlüssel hochladen"
 
@@ -155,28 +153,27 @@ msgstr "Dokument ist signiert mit gültiger Unterschrift."
 msgid "Document is signed with a valid signature."
 msgstr "Das Dokument ist mit einer gültigen Signatur signiert."
 
-#: models.py:27
+#: models.py:32
 msgid "ASCII armored version of the key."
 msgstr "ASCII Version des Schlüssels."
 
-#: models.py:28
+#: models.py:33
 msgid "Key data"
 msgstr "Schlüssel-Daten"
 
-#: models.py:56
-#| msgid "Key ID"
+#: models.py:61
 msgid "Key"
 msgstr "Schlüssel"
 
-#: models.py:57
+#: models.py:62
 msgid "Keys"
 msgstr "Schlüssel"
 
-#: models.py:63
+#: models.py:68
 msgid "Invalid key data"
 msgstr "Ungültige Schlüssel-Daten"
 
-#: models.py:66
+#: models.py:71
 msgid "Key already exists."
 msgstr "Schlüssel existiert bereits."
 
@@ -197,7 +194,6 @@ msgid "Use keys to sign content"
 msgstr "Schlüssel benutzen um Inhalt zu signieren"
 
 #: permissions.py:22
-#| msgid "public keys"
 msgid "Upload keys"
 msgstr "Schlüssel hochladen"
 
@@ -206,7 +202,6 @@ msgid "View keys"
 msgstr "Schlüssel anzeigen"
 
 #: settings.py:10
-#| msgid "Signature error."
 msgid "Signatures"
 msgstr "Unterschriften"
 
@@ -219,13 +214,11 @@ msgid "Path to the GPG binary."
 msgstr "Pfad zum Programm GPG"
 
 #: settings.py:25
-#| msgid "List of keyservers to be queried for unknown keys."
 msgid "Keyserver used to query for keys."
 msgstr "Server, der nach unbekannten Schlüsseln durchsucht wird."
 
 #: views.py:38
 #, python-format
-#| msgid "Delete keys"
 msgid "Delete key: %s"
 msgstr "Schlüssel löschen: %s"
 
@@ -236,7 +229,6 @@ msgstr "Details für Schlüssel %s"
 
 #: views.py:68
 #, python-format
-#| msgid "Import key"
 msgid "Import key ID: %s?"
 msgstr "Schlüssel-ID %s importieren?"
 
@@ -246,7 +238,6 @@ msgstr "Schlüssel importieren"
 
 #: views.py:78
 #, python-format
-#| msgid "Unable to import key id: %(key_id)s; %(error)s"
 msgid "Unable to import key: %(key_id)s; %(error)s"
 msgstr "Schlüssel-ID %(key_id)s konnte nicht importiert werden: %(error)s"
 
@@ -270,59 +261,3 @@ msgstr "Ergebnis Schlüsselsuche"
 #: views.py:138
 msgid "Upload new key"
 msgstr "Neuen Schlüssel hochladen"
-
-#~ msgid "Unknown"
-#~ msgstr "unknown"
-
-#~ msgid "ID"
-#~ msgstr "ID"
-
-#~ msgid "Owner"
-#~ msgstr "Owner"
-
-#~ msgid "Identities"
-#~ msgstr "Identifies"
-
-#~ msgid "Key: %s, deleted successfully."
-#~ msgstr "Key: %s, deleted successfully."
-
-#~ msgid "Delete key"
-#~ msgstr "Delete key"
-
-#~ msgid ""
-#~ "Delete key %s? If you delete a public key that is part of a public/private "
-#~ "pair the private key will be deleted as well."
-#~ msgstr ""
-#~ "Are you sure you wish to delete key: %s?  If you try to delete a public key "
-#~ "that is part of a public/private pair the private key will be deleted as "
-#~ "well."
-
-#~ msgid "results"
-#~ msgstr "results"
-
-#~ msgid "Key: %s, imported successfully."
-#~ msgstr "Key: %s, imported successfully."
-
-#~ msgid "Are you sure you wish to import key id: %s?"
-#~ msgstr "Are you sure you wish to import key id: %s?"
-
-#~ msgid "Disabled"
-#~ msgstr "disabled"
-
-#~ msgid "Expired"
-#~ msgstr "expired"
-
-#~ msgid "Revoked"
-#~ msgstr "revoked"
-
-#~ msgid "private keys"
-#~ msgstr "private keys"
-
-#~ msgid "type"
-#~ msgstr "type"
-
-#~ msgid "query keyservers"
-#~ msgstr "query keyservers"
-
-#~ msgid "key management"
-#~ msgstr "key management"

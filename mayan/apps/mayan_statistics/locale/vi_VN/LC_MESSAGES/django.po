@@ -8,8 +8,8 @@ msgid ""
 msgstr ""
 "Project-Id-Version: Mayan EDMS\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2016-11-23 02:57-0400\n"
-"PO-Revision-Date: 2016-03-21 21:05+0000\n"
+"POT-Creation-Date: 2017-08-27 12:47-0400\n"
+"PO-Revision-Date: 2017-06-23 05:44+0000\n"
 "Last-Translator: Roberto Rosario\n"
 "Language-Team: Vietnamese (Viet Nam) (http://www.transifex.com/rosarior/mayan-edms/language/vi_VN/)\n"
 "MIME-Version: 1.0\n"
@@ -18,13 +18,13 @@ msgstr ""
 "Language: vi_VN\n"
 "Plural-Forms: nplurals=1; plural=0;\n"
 
-#: apps.py:24 links.py:28 permissions.py:7
+#: apps.py:25 links.py:28 permissions.py:7 queues.py:8
 msgid "Statistics"
 msgstr "Thống kê"
 
 #. Translators: Schedule here is a verb, the 'schedule' at which the
 #. statistic will be updated
-#: apps.py:43
+#: apps.py:34
 msgid "Schedule"
 msgstr ""
 
@@ -68,6 +68,10 @@ msgstr ""
 
 #: permissions.py:10
 msgid "View statistics"
+msgstr ""
+
+#: queues.py:13
+msgid "Execute statistic"
 msgstr ""
 
 #: templates/statistics/backends/chartjs/line.html:19

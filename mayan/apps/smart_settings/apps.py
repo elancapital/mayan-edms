@@ -13,6 +13,7 @@ from .widgets import setting_widget
 class SmartSettingsApp(MayanAppConfig):
     app_namespace = 'settings'
     app_url = 'settings'
+    has_tests = True
     name = 'smart_settings'
     verbose_name = _('Smart settings')
 

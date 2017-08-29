@@ -4,27 +4,37 @@ import base64
 import logging
 import os
 
-from PIL import Image
+try:
+    from cStringIO import StringIO
+except ImportError:
+    from StringIO import StringIO
+
+from PIL import Image, ImageFilter
 import sh
+import yaml
 
 from django.utils.translation import string_concat, ugettext_lazy as _
 
 from common.compat import StringIO
 from common.settings import setting_temporary_directory
-from common.utils import fs_cleanup, mkstemp
+from common.utils import fs_cleanup, mkdtemp, mkstemp
 from mimetype.api import get_mimetype
 
 from .exceptions import InvalidOfficeFormat, OfficeConversionError
-from .literals import DEFAULT_PAGE_NUMBER, DEFAULT_FILE_FORMAT
-from .settings import setting_libreoffice_path
+from .literals import (
+    DEFAULT_LIBREOFFICE_PATH, DEFAULT_PAGE_NUMBER, DEFAULT_PILLOW_FORMAT
+)
+from .settings import setting_graphics_backend_config
 
 CHUNK_SIZE = 1024
 logger = logging.getLogger(__name__)
 
 try:
     LIBREOFFICE = sh.Command(
-        setting_libreoffice_path.value
-    ).bake('--headless', '--convert-to', 'pdf')
+        yaml.load(setting_graphics_backend_config.value).get(
+            'libreoffice_path', DEFAULT_LIBREOFFICE_PATH
+        )
+    ).bake('--headless', '--convert-to', 'pdf:writer_pdf_Export')
 except sh.CommandNotFound:
     LIBREOFFICE = None
 
@@ -109,12 +119,9 @@ class ConverterBase(object):
         """
         Executes LibreOffice as a subprocess
         """
-
-        if not os.path.exists(setting_libreoffice_path.value):
+        if not LIBREOFFICE:
             raise OfficeConversionError(
-                _(
-                    'LibreOffice not installed or not found at path: %s'
-                ) % setting_libreoffice_path.value
+                _('LibreOffice not installed or not found.')
             )
 
         new_file_object, input_filepath = mkstemp()
@@ -128,9 +135,17 @@ class ConverterBase(object):
         if self.mime_type == 'text/plain':
             libreoffice_filter = 'Text (encoded):UTF8,LF,,,'
 
-        args = (input_filepath, '--outdir', setting_temporary_directory.value)
+        libreoffice_home_directory = mkdtemp()
+        args = (
+            input_filepath, '--outdir', setting_temporary_directory.value,
+            '-env:UserInstallation=file://{}'.format(
+                os.path.join(
+                    libreoffice_home_directory, 'LibreOffice_Conversion'
+                )
+            ),
+        )
 
-        kwargs = {'_env': {'HOME': setting_temporary_directory.value}}
+        kwargs = {'_env': {'HOME': libreoffice_home_directory}}
 
         if libreoffice_filter:
             kwargs.update({'infilter': libreoffice_filter})
@@ -139,8 +154,12 @@ class ConverterBase(object):
             LIBREOFFICE(*args, **kwargs)
         except sh.ErrorReturnCode as exception:
             raise OfficeConversionError(exception)
+        except Exception as exception:
+            logger.error('Exception launching Libre Office; %s', exception)
+            raise
         finally:
             fs_cleanup(input_filepath)
+            fs_cleanup(libreoffice_home_directory)
 
         filename, extension = os.path.splitext(
             os.path.basename(input_filepath)
@@ -165,19 +184,23 @@ class ConverterBase(object):
         fs_cleanup(input_filepath)
         fs_cleanup(converted_output)
 
-    def get_page(self, output_format=DEFAULT_FILE_FORMAT, as_base64=False):
+    def get_page(self, output_format=None, as_base64=False):
+        output_format = output_format or yaml.load(
+            setting_graphics_backend_config.value
+        ).get(
+            'pillow_format', DEFAULT_PILLOW_FORMAT
+        )
+
         if not self.image:
             self.seek(0)
 
         image_buffer = StringIO()
-
         new_mode = self.image.mode
 
         if output_format.upper() == 'JPEG':
-            if self.image.mode == 'P':
-                new_mode = 'RGB'
-                if 'transparency' in self.image.info:
-                    new_mode = 'RGBA'
+            # JPEG doesn't support transparency channel, convert the image to
+            # RGB. Removes modes: P and RGBA
+            new_mode = 'RGB'
 
         self.image.convert(new_mode).save(image_buffer, format=output_format)
 
@@ -186,7 +209,7 @@ class ConverterBase(object):
         else:
             image_buffer.seek(0)
 
-            return image_buffer
+        return image_buffer
 
     def convert(self, page_number=DEFAULT_PAGE_NUMBER):
         self.page_number = page_number
@@ -210,11 +233,18 @@ class ConverterBase(object):
         except InvalidOfficeFormat as exception:
             logger.debug('Is not an office format document; %s', exception)
 
+    def detect_orientation(self, page_number):
+        # Must be overrided by subclass
+        pass
+
 
 class BaseTransformation(object):
-    name = 'base_transformation'
+    """
+    Transformation can modify the appearance of the document's page preview.
+    Some transformation available are: Rotate, zoom, resize and crop.
+    """
     arguments = ()
-
+    name = 'base_transformation'
     _registry = {}
 
     @staticmethod
@@ -243,9 +273,11 @@ class BaseTransformation(object):
 
     @classmethod
     def get_transformation_choices(cls):
-        return [
-            (name, klass.get_label()) for name, klass in cls._registry.items()
-        ]
+        return sorted(
+            [
+                (name, klass.get_label()) for name, klass in cls._registry.items()
+            ]
+        )
 
     @classmethod
     def get(cls, name):
@@ -253,7 +285,10 @@ class BaseTransformation(object):
 
     @classmethod
     def get_label(cls):
-        return string_concat(cls.label, ': ', ', '.join(cls.arguments))
+        if cls.arguments:
+            return string_concat(cls.label, ': ', ', '.join(cls.arguments))
+        else:
+            return cls.label
 
     def __init__(self, **kwargs):
         self.kwargs = {}
@@ -273,10 +308,66 @@ class BaseTransformation(object):
         self.aspect = 1.0 * image.size[0] / image.size[1]
 
 
+class TransformationCrop(BaseTransformation):
+    arguments = ('left', 'top', 'right', 'bottom',)
+    label = _('Crop')
+    name = 'crop'
+
+    def execute_on(self, *args, **kwargs):
+        super(TransformationCrop, self).execute_on(*args, **kwargs)
+
+        return self.image.crop(
+            (self.left, self.top, self.right, self.bottom)
+        )
+
+
+class TransformationFlip(BaseTransformation):
+    arguments = ()
+    label = _('Flip')
+    name = 'flip'
+
+    def execute_on(self, *args, **kwargs):
+        super(TransformationFlip, self).execute_on(*args, **kwargs)
+
+        return self.image.transpose(Image.FLIP_TOP_BOTTOM)
+
+
+class TransformationGaussianBlur(BaseTransformation):
+    arguments = ('radius',)
+    label = _('Gaussian blur')
+    name = 'gaussianblur'
+
+    def execute_on(self, *args, **kwargs):
+        super(TransformationGaussianBlur, self).execute_on(*args, **kwargs)
+
+        return self.image.filter(ImageFilter.GaussianBlur(radius=self.radius))
+
+
+class TransformationLineArt(BaseTransformation):
+    label = _('Line art')
+    name = 'lineart'
+
+    def execute_on(self, *args, **kwargs):
+        super(TransformationLineArt, self).execute_on(*args, **kwargs)
+
+        return self.image.convert('L').point(lambda x: 0 if x < 128 else 255, '1')
+
+
+class TransformationMirror(BaseTransformation):
+    arguments = ()
+    label = _('Mirror')
+    name = 'mirror'
+
+    def execute_on(self, *args, **kwargs):
+        super(TransformationMirror, self).execute_on(*args, **kwargs)
+
+        return self.image.transpose(Image.FLIP_LEFT_RIGHT)
+
+
 class TransformationResize(BaseTransformation):
-    name = 'resize'
     arguments = ('width', 'height')
     label = _('Resize')
+    name = 'resize'
 
     def execute_on(self, *args, **kwargs):
         super(TransformationResize, self).execute_on(*args, **kwargs)
@@ -301,9 +392,9 @@ class TransformationResize(BaseTransformation):
 
 
 class TransformationRotate(BaseTransformation):
-    name = 'rotate'
     arguments = ('degrees',)
     label = _('Rotate')
+    name = 'rotate'
 
     def execute_on(self, *args, **kwargs):
         super(TransformationRotate, self).execute_on(*args, **kwargs)
@@ -318,10 +409,59 @@ class TransformationRotate(BaseTransformation):
         )
 
 
+class TransformationRotate90(TransformationRotate):
+    arguments = ()
+    degrees = 90
+    label = _('Rotate 90 degrees')
+    name = 'rotate90'
+
+    def __init__(self, **kwargs):
+        super(TransformationRotate90, self).__init__()
+        self.kwargs['degrees'] = 90
+
+
+class TransformationRotate180(TransformationRotate):
+    arguments = ()
+    degrees = 180
+    label = _('Rotate 180 degrees')
+    name = 'rotate180'
+
+    def __init__(self, **kwargs):
+        super(TransformationRotate180, self).__init__()
+        self.kwargs['degrees'] = 180
+
+
+class TransformationRotate270(TransformationRotate):
+    arguments = ()
+    degrees = 270
+    label = _('Rotate 270 degrees')
+    name = 'rotate270'
+
+    def __init__(self, **kwargs):
+        super(TransformationRotate270, self).__init__()
+        self.kwargs['degrees'] = 270
+
+
+class TransformationUnsharpMask(BaseTransformation):
+    arguments = ('radius', 'percent', 'threshold')
+    label = _('Unsharp masking')
+    name = 'unsharpmask'
+
+    def execute_on(self, *args, **kwargs):
+        super(TransformationUnsharpMask, self).execute_on(*args, **kwargs)
+
+        return self.image.filter(
+            ImageFilter.UnsharpMask(
+                radius=self.radius, percent=self.percent,
+                threshold=self.threshold
+            )
+        )
+
+
 class TransformationZoom(BaseTransformation):
-    name = 'zoom'
     arguments = ('percent',)
     label = _('Zoom')
+    name = 'zoom'
 
     def execute_on(self, *args, **kwargs):
         super(TransformationZoom, self).execute_on(*args, **kwargs)
@@ -338,20 +478,15 @@ class TransformationZoom(BaseTransformation):
         )
 
 
-class TransformationCrop(BaseTransformation):
-    name = 'crop'
-    arguments = ('left', 'top', 'right', 'bottom',)
-    label = _('Crop')
-
-    def execute_on(self, *args, **kwargs):
-        super(TransformationCrop, self).execute_on(*args, **kwargs)
-
-        return self.image.crop(
-            (self.left, self.top, self.right, self.bottom)
-        )
-
-
+BaseTransformation.register(TransformationCrop)
+BaseTransformation.register(TransformationFlip)
+BaseTransformation.register(TransformationGaussianBlur)
+BaseTransformation.register(TransformationLineArt)
+BaseTransformation.register(TransformationMirror)
 BaseTransformation.register(TransformationResize)
 BaseTransformation.register(TransformationRotate)
+BaseTransformation.register(TransformationRotate90)
+BaseTransformation.register(TransformationRotate180)
+BaseTransformation.register(TransformationRotate270)
+BaseTransformation.register(TransformationUnsharpMask)
 BaseTransformation.register(TransformationZoom)
-BaseTransformation.register(TransformationCrop)

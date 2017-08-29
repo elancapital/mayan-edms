@@ -7,10 +7,11 @@ import urllib
 from django.apps import apps
 from django.conf import settings
 from django.core.exceptions import PermissionDenied
-from django.core.urlresolvers import resolve, reverse
+from django.shortcuts import resolve_url
 from django.template import VariableDoesNotExist, Variable
 from django.template.defaulttags import URLNode
-from django.utils.encoding import smart_str
+from django.urls import resolve
+from django.utils.encoding import force_text
 from django.utils.http import urlencode, urlquote
 
 from common.compat import smart_unicode, unquote_plus, urlparse
@@ -26,6 +27,8 @@ class ResolvedLink(object):
         self.disabled = False
         self.link = link
         self.url = '#'
+        self.context = None
+        self.request = None
 
     @property
     def active(self):
@@ -45,7 +48,10 @@ class ResolvedLink(object):
 
     @property
     def text(self):
-        return self.link.text
+        try:
+            return self.link.text(context=self.context)
+        except TypeError:
+            return self.link.text
 
 
 class Menu(object):
@@ -54,6 +60,10 @@ class Menu(object):
     @classmethod
     def get(cls, name):
         return cls._registry[name]
+
+    @classmethod
+    def remove(cls, name):
+        del cls._registry[name]
 
     def __init__(self, name, icon=None, label=None):
         if name in self.__class__._registry:
@@ -113,9 +123,8 @@ class Menu(object):
 
         logger.debug(
             'resolved_navigation_object_list: %s',
-            resolved_navigation_object_list
+            force_text(resolved_navigation_object_list)
         )
-
         return resolved_navigation_object_list
 
     def resolve(self, context, source=None):
@@ -151,7 +160,8 @@ class Menu(object):
                                     resolved_object=resolved_navigation_object
                                 )
                                 if resolved_link:
-                                    resolved_links.append(resolved_link)
+                                    if resolved_link.link not in self.unbound_links.get(bound_source, ()):
+                                        resolved_links.append(resolved_link)
                             # No need for further content object match testing
                             break
                         elif hasattr(resolved_navigation_object, 'get_deferred_fields') and resolved_navigation_object.get_deferred_fields() and isinstance(resolved_navigation_object, bound_source):
@@ -162,7 +172,8 @@ class Menu(object):
                                     resolved_object=resolved_navigation_object
                                 )
                                 if resolved_link:
-                                    resolved_links.append(resolved_link)
+                                    if resolved_link.link not in self.unbound_links.get(bound_source, ()):
+                                        resolved_links.append(resolved_link)
                             # No need for further content object match testing
                             break
                 except TypeError:
@@ -175,9 +186,10 @@ class Menu(object):
         resolved_links = []
         # View links
         for link in self.bound_links.get(current_view, []):
-            resolved_link = link.resolve(context)
+            resolved_link = link.resolve(context=context)
             if resolved_link:
-                resolved_links.append(resolved_link)
+                if resolved_link.link not in self.unbound_links.get(current_view, ()):
+                    resolved_links.append(resolved_link)
 
         if resolved_links:
             result.append(resolved_links)
@@ -188,28 +200,19 @@ class Menu(object):
         for link in self.bound_links.get(None, []):
             if isinstance(link, Menu):
                 resolved_link = link
+                if resolved_link not in self.unbound_links.get(None, ()):
+                    resolved_links.append(resolved_link)
             else:
-                resolved_link = link.resolve(context)
-
-            if resolved_link:
-                resolved_links.append(resolved_link)
+                # "Always show" links
+                resolved_link = link.resolve(context=context)
+                if resolved_link:
+                    if resolved_link.link not in self.unbound_links.get(None, ()):
+                        resolved_links.append(resolved_link)
 
         if resolved_links:
             result.append(resolved_links)
 
         if result:
-            unbound_links = []
-            unbound_links.extend(self.unbound_links.get(source, ()))
-            unbound_links.extend(self.unbound_links.get(current_view, ()))
-
-            for resolved_link in result[0]:
-                try:
-                    if resolved_link.link in unbound_links:
-                        result[0].remove(resolved_link)
-                except AttributeError:
-                    # It's a menu, ignore
-                    pass
-
             # Sort links by position value passed during bind
             result[0] = sorted(
                 result[0], key=lambda item: (self.link_positions.get(item.link) or 0) if isinstance(item, ResolvedLink) else (self.link_positions.get(item) or 0)
@@ -236,10 +239,11 @@ class Menu(object):
 
 
 class Link(object):
-    def __init__(self, text, view, args=None, condition=None,
+    def __init__(self, text, view=None, args=None, condition=None,
                  conditional_disable=None, description=None, icon=None,
                  keep_query=False, kwargs=None, permissions=None,
-                 permissions_related=None, remove_from_query=None, tags=None):
+                 permissions_related=None, remove_from_query=None, tags=None,
+                 url=None):
 
         self.args = args or []
         self.condition = condition
@@ -254,6 +258,7 @@ class Link(object):
         self.tags = tags
         self.text = text
         self.view = view
+        self.url = url
 
     def resolve(self, context, resolved_object=None):
         AccessControlList = apps.get_model(
@@ -271,7 +276,7 @@ class Link(object):
             except VariableDoesNotExist:
                 pass
 
-        # If this link has a required permission check that the user have it
+        # If this link has a required permission check that the user has it
         # too
         if self.permissions:
             if resolved_object:
@@ -299,40 +304,42 @@ class Link(object):
 
         resolved_link = ResolvedLink(current_view=current_view, link=self)
 
-        view_name = Variable('"{}"'.format(self.view))
-        if isinstance(self.args, list) or isinstance(self.args, tuple):
-            # TODO: Don't check for instance check for iterable in try/except
-            # block. This update required changing all 'args' argument in
-            # links.py files to be iterables and not just strings.
-            args = [Variable(arg) for arg in self.args]
-        else:
-            args = [Variable(self.args)]
+        if self.view:
+            view_name = Variable('"{}"'.format(self.view))
+            if isinstance(self.args, list) or isinstance(self.args, tuple):
+                # TODO: Don't check for instance check for iterable in try/except
+                # block. This update required changing all 'args' argument in
+                # links.py files to be iterables and not just strings.
+                args = [Variable(arg) for arg in self.args]
+            else:
+                args = [Variable(self.args)]
 
-        # If we were passed an instance of the view context object we are
-        # resolving, inject it into the context. This help resolve links for
-        # object lists.
-        if resolved_object:
-            context['resolved_object'] = resolved_object
+            # If we were passed an instance of the view context object we are
+            # resolving, inject it into the context. This help resolve links for
+            # object lists.
+            if resolved_object:
+                context['resolved_object'] = resolved_object
 
-        try:
-            kwargs = self.kwargs(context)
-        except TypeError:
-            # Is not a callable
-            kwargs = self.kwargs
+            try:
+                kwargs = self.kwargs(context)
+            except TypeError:
+                # Is not a callable
+                kwargs = self.kwargs
 
-        kwargs = {key: Variable(value) for key, value in kwargs.items()}
+            kwargs = {key: Variable(value) for key, value in kwargs.iteritems()}
 
-        # Use Django's exact {% url %} code to resolve the link
-        node = URLNode(
-            view_name=view_name, args=args, kwargs=kwargs, asvar=None
-        )
-
-        try:
-            resolved_link.url = node.render(context)
-        except Exception as exception:
-            logger.error(
-                'Error resolving link "%s" URL; %s', self.text, exception
+            # Use Django's exact {% url %} code to resolve the link
+            node = URLNode(
+                view_name=view_name, args=args, kwargs=kwargs, asvar=None
             )
+            try:
+                resolved_link.url = node.render(context)
+            except Exception as exception:
+                logger.error(
+                    'Error resolving link "%s" URL; %s', self.text, exception
+                )
+        elif self.url:
+            resolved_link.url = self.url
 
         # This is for links that should be displayed but that are not clickable
         if self.conditional_disable:
@@ -343,14 +350,14 @@ class Link(object):
         # Lets a new link keep the same URL query string of the current URL
         if self.keep_query:
             # Sometimes we are required to remove a key from the URL QS
-            previous_path = smart_unicode(
-                unquote_plus(
-                    smart_str(
+            previous_path = force_text(
+                urllib.unquote_plus(
+                    force_text(
                         request.get_full_path()
-                    ) or smart_str(
+                    ) or force_text(
                         request.META.get(
                             'HTTP_REFERER',
-                            reverse(settings.LOGIN_REDIRECT_URL)
+                            resolve_url(settings.LOGIN_REDIRECT_URL)
                         )
                     )
                 )
@@ -369,10 +376,14 @@ class Link(object):
                 urlencode(parsed_query_string, doseq=True)
             )
 
+        resolved_link.context = context
         return resolved_link
 
 
 class Separator(Link):
+    """
+    Menu separator. Renders to an <hr> tag
+    """
     def __init__(self, *args, **kwargs):
         self.icon = None
         self.text = None
@@ -387,34 +398,39 @@ class Separator(Link):
 class SourceColumn(object):
     _registry = {}
 
+    @staticmethod
+    def sort(columns):
+        return sorted(columns, key=lambda x: x.order)
+
     @classmethod
     def get_for_source(cls, source):
         try:
-            return cls._registry[source]
+            return SourceColumn.sort(columns=cls._registry[source])
         except KeyError:
             try:
                 # Try it as a queryset
-                return cls._registry[source.model]
+                return SourceColumn.sort(columns=cls._registry[source.model])
             except AttributeError:
                 try:
                     # It seems to be an instance, try its class
-                    return cls._registry[source.__class__]
+                    return SourceColumn.sort(columns=cls._registry[source.__class__])
                 except KeyError:
                     try:
                         # Special case for queryset items produced from
                         # .defer() or .only() optimizations
-                        return cls._registry[source._meta.parents.items()[0][0]]
+                        return SourceColumn.sort(columns=cls._registry[source._meta.parents.items()[0][0]])
                     except (AttributeError, KeyError, IndexError):
                         return ()
         except TypeError:
             # unhashable type: list
             return ()
 
-    def __init__(self, source, label, attribute=None, func=None):
+    def __init__(self, source, label, attribute=None, func=None, order=None):
         self.source = source
         self.label = label
         self.attribute = attribute
         self.func = func
+        self.order = order or 0
         self.__class__._registry.setdefault(source, [])
         self.__class__._registry[source].append(self)
 
@@ -424,4 +440,20 @@ class SourceColumn(object):
         elif self.func:
             result = self.func(context=context)
 
+        return result
+
+
+class Text(Link):
+    """
+    Menu text. Renders to a plain <li> tag
+    """
+    def __init__(self, *args, **kwargs):
+        self.icon = None
+        self.text = kwargs.get('text')
+        self.view = None
+
+    def resolve(self, *args, **kwargs):
+        result = ResolvedLink(current_view=None, link=self)
+        result.context = kwargs.get('context')
+        result.text_span = True
         return result

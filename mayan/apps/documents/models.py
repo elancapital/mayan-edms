@@ -2,13 +2,15 @@ from __future__ import absolute_import, unicode_literals
 
 import hashlib
 import logging
+import os
 import uuid
 
 from django.conf import settings
 from django.core.files import File
-from django.core.urlresolvers import reverse
 from django.db import models, transaction
-from django.utils.encoding import python_2_unicode_compatible
+from django.template import Template, Context
+from django.urls import reverse
+from django.utils.encoding import force_text, python_2_unicode_compatible
 from django.utils.timezone import now
 from django.utils.translation import ugettext, ugettext_lazy as _
 
@@ -30,12 +32,13 @@ from .events import (
 )
 from .literals import DEFAULT_DELETE_PERIOD, DEFAULT_DELETE_TIME_UNIT
 from .managers import (
-    DocumentManager, DocumentTypeManager, PassthroughManager,
-    RecentDocumentManager, TrashCanManager
+    DocumentManager, DocumentTypeManager, DuplicatedDocumentManager,
+    PassthroughManager, RecentDocumentManager, TrashCanManager
 )
 from .permissions import permission_document_view
 from .runtime import cache_storage_backend, storage_backend
 from .settings import (
+    setting_disable_base_image_cache, setting_disable_transformed_image_cache,
     setting_display_size, setting_language, setting_zoom_max_level,
     setting_zoom_min_level
 )
@@ -52,7 +55,7 @@ def HASH_FUNCTION(data):
 
 
 def UUID_FUNCTION(*args, **kwargs):
-    return unicode(uuid.uuid4())
+    return force_text(uuid.uuid4())
 
 
 @python_2_unicode_compatible
@@ -141,11 +144,15 @@ class DocumentType(models.Model):
 class Document(models.Model):
     """
     Defines a single document with it's fields and properties
+    Fields:
+    * uuid - UUID of a document, universally Unique ID. An unique identifier
+    generated for each document. No two documents can ever have the same UUID.
+    This ID is generated automatically.
     """
 
     uuid = models.UUIDField(default=uuid.uuid4, editable=False)
     document_type = models.ForeignKey(
-        DocumentType, related_name='documents',
+        DocumentType, on_delete=models.CASCADE, related_name='documents',
         verbose_name=_('Document type')
     )
     label = models.CharField(
@@ -233,7 +240,11 @@ class Document(models.Model):
         Returns a boolean value that indicates if the document's
         latest version file exists in storage
         """
-        return self.latest_version.exists()
+        latest_version = self.latest_version
+        if latest_version:
+            return latest_version.exists()
+        else:
+            return False
 
     def invalidate_cache(self):
         for document_version in self.versions.all():
@@ -315,7 +326,7 @@ class Document(models.Model):
             return self.latest_version.pages
         except AttributeError:
             # Document has no version yet
-            return 0
+            return DocumentPage.objects.none()
 
 
 class DeletedDocument(Document):
@@ -329,6 +340,18 @@ class DeletedDocument(Document):
 class DocumentVersion(models.Model):
     """
     Model that describes a document version and its properties
+    Fields:
+    * mimetype - File mimetype. MIME types are a standard way to describe the
+    format of a file, in this case the file format of the document.
+    Some examples: "text/plain" or "image/jpeg". Mayan uses this to determine
+    how to render a document's file. More information:
+    http://www.freeformatter.com/mime-types-list.html
+    * encoding - File Encoding. The filesystem encoding of the document's
+    file: binary 7-bit, binary 8-bit, text, base64, etc.
+    * checksum - A hash/checkdigit/fingerprint generated from the document's
+    binary data. Only identical documents will have the same checksum. If a
+    document is modified after upload it's checksum will not match, used for
+    detecting file tampering among other things.
     """
     _pre_open_hooks = {}
     _post_save_hooks = {}
@@ -342,7 +365,8 @@ class DocumentVersion(models.Model):
         cls._post_save_hooks[order] = func
 
     document = models.ForeignKey(
-        Document, related_name='versions', verbose_name=_('Document')
+        Document, on_delete=models.CASCADE, related_name='versions',
+        verbose_name=_('Document')
     )
     timestamp = models.DateTimeField(
         auto_now_add=True, db_index=True, verbose_name=_('Timestamp')
@@ -362,12 +386,18 @@ class DocumentVersion(models.Model):
     encoding = models.CharField(
         blank=True, editable=False, max_length=64, null=True
     )
-    checksum = models.TextField(
-        blank=True, editable=False, null=True, verbose_name=_('Checksum')
+    checksum = models.CharField(
+        blank=True, db_index=True, editable=False, max_length=64, null=True,
+        verbose_name=_('Checksum')
     )
 
+    class Meta:
+        ordering = ('timestamp',)
+        verbose_name = _('Document version')
+        verbose_name_plural = _('Document version')
+
     def __str__(self):
-        return '{0} - {1}'.format(self.document, self.timestamp)
+        return self.get_rendered_string()
 
     def delete(self, *args, **kwargs):
         for page in self.pages.all():
@@ -376,6 +406,25 @@ class DocumentVersion(models.Model):
         self.file.storage.delete(self.file.name)
 
         return super(DocumentVersion, self).delete(*args, **kwargs)
+
+    def get_absolute_url(self):
+        return reverse('documents:document_version_view', args=(self.pk,))
+
+    def get_rendered_string(self, preserve_extension=False):
+        if preserve_extension:
+            filename, extension = os.path.splitext(self.document.label)
+            return '{} ({}){}'.format(
+                filename, self.get_rendered_timestamp(), extension
+            )
+        else:
+            return Template(
+                '{{ instance.document }} - {{ instance.timestamp }}'
+            ).render(context=Context({'instance': self}))
+
+    def get_rendered_timestamp(self):
+        return Template('{{ instance.timestamp }}').render(
+            context=Context({'instance': self})
+        )
 
     def save(self, *args, **kwargs):
         """
@@ -404,6 +453,7 @@ class DocumentVersion(models.Model):
                     self.update_mimetype(save=False)
                     self.save()
                     self.update_page_count(save=False)
+                    self.fix_orientation()
 
                     logger.info(
                         'New document version "%s" created for document: %s',
@@ -412,7 +462,7 @@ class DocumentVersion(models.Model):
 
                     self.document.is_stub = False
                     if not self.document.label:
-                        self.document.label = unicode(self.file)
+                        self.document.label = force_text(self.file)
 
                     self.document.save()
         except Exception as exception:
@@ -424,18 +474,14 @@ class DocumentVersion(models.Model):
         else:
             if new_document_version:
                 event_document_new_version.commit(
-                    actor=user, target=self.document
+                    actor=user, target=self, action_object=self.document
                 )
-                post_version_upload.send(sender=self.__class__, instance=self)
+                post_version_upload.send(sender=DocumentVersion, instance=self)
 
                 if tuple(self.document.versions.all()) == (self,):
                     post_document_created.send(
-                        sender=self.document.__class__, instance=self.document
+                        sender=Document, instance=self.document
                     )
-
-    class Meta:
-        verbose_name = _('Document version')
-        verbose_name_plural = _('Document version')
 
     @property
     def cache_filename(self):
@@ -444,9 +490,20 @@ class DocumentVersion(models.Model):
     def exists(self):
         """
         Returns a boolean value that indicates if the document's file
-        exists in storage
+        exists in storage. Returns True if the document's file is verified to
+        be in the document storage. This is a diagnostic flag to help users
+        detect if the storage has desynchronized (ie: Amazon's S3).
         """
         return self.file.storage.exists(self.file.name)
+
+    def fix_orientation(self):
+        for page in self.pages.all():
+            degrees = page.detect_orientation()
+            if degrees:
+                Transformation.objects.add_for_model(
+                    obj=page, transformation=TransformationRotate,
+                    arguments='{{"degrees": {}}}'.format(360 - degrees)
+                )
 
     def get_intermidiate_file(self):
         cache_filename = self.cache_filename
@@ -502,6 +559,9 @@ class DocumentVersion(models.Model):
 
     @property
     def page_count(self):
+        """
+        The number of pages that the document posses.
+        """
         return self.pages.count()
 
     def revert(self, _user=None):
@@ -549,7 +609,7 @@ class DocumentVersion(models.Model):
         """
         if self.exists():
             source = self.open()
-            self.checksum = unicode(HASH_FUNCTION(source.read()))
+            self.checksum = force_text(HASH_FUNCTION(source.read()))
             source.close()
             if save:
                 self.save()
@@ -611,7 +671,7 @@ class DocumentTypeFilename(models.Model):
     quick rename functionality
     """
     document_type = models.ForeignKey(
-        DocumentType, related_name='filenames',
+        DocumentType, on_delete=models.CASCADE, related_name='filenames',
         verbose_name=_('Document type')
     )
     filename = models.CharField(
@@ -635,7 +695,7 @@ class DocumentPage(models.Model):
     Model that describes a document version page
     """
     document_version = models.ForeignKey(
-        DocumentVersion, related_name='pages',
+        DocumentVersion, on_delete=models.CASCADE, related_name='pages',
         verbose_name=_('Document version')
     )
     page_number = models.PositiveIntegerField(
@@ -647,7 +707,7 @@ class DocumentPage(models.Model):
         return _(
             'Page %(page_num)d out of %(total_pages)d of %(document)s'
         ) % {
-            'document': unicode(self.document),
+            'document': force_text(self.document),
             'page_num': self.page_number,
             'total_pages': self.document_version.pages.count()
         }
@@ -671,6 +731,16 @@ class DocumentPage(models.Model):
     @property
     def document(self):
         return self.document_version.document
+
+    def detect_orientation(self):
+        with self.document_version.open() as file_object:
+            converter = converter_class(
+                file_object=file_object,
+                mime_type=self.document_version.mimetype
+            )
+            return converter.detect_orientation(
+                page_number=self.page_number
+            )
 
     def generate_image(self, *args, **kwargs):
         # Convert arguments into transformations
@@ -722,11 +792,14 @@ class DocumentPage(models.Model):
         # Check is transformed image is available
         logger.debug('transformations cache filename: %s', cache_filename)
 
-        if cache_storage_backend.exists(cache_filename):
+        if not setting_disable_transformed_image_cache.value and cache_storage_backend.exists(cache_filename):
             logger.debug(
                 'transformations cache file "%s" found', cache_filename
             )
         else:
+            logger.debug(
+                'transformations cache file "%s" not found', cache_filename
+            )
             image = self.get_image(transformations=transformation_list)
             with cache_storage_backend.open(cache_filename, 'wb+') as file_object:
                 file_object.write(image.getvalue())
@@ -739,7 +812,7 @@ class DocumentPage(models.Model):
         cache_filename = self.cache_filename
         logger.debug('Page cache filename: %s', cache_filename)
 
-        if cache_storage_backend.exists(cache_filename):
+        if not setting_disable_base_image_cache.value and cache_storage_backend.exists(cache_filename):
             logger.debug('Page cache file "%s" found', cache_filename)
             converter = converter_class(
                 file_object=cache_storage_backend.open(cache_filename)
@@ -795,7 +868,7 @@ class DocumentPage(models.Model):
 
 class DocumentPageCachedImage(models.Model):
     document_page = models.ForeignKey(
-        DocumentPage, related_name='cached_images',
+        DocumentPage, on_delete=models.CASCADE, related_name='cached_images',
         verbose_name=_('Document page')
     )
     filename = models.CharField(max_length=128, verbose_name=_('Filename'))
@@ -824,10 +897,12 @@ class RecentDocument(models.Model):
     a given user
     """
     user = models.ForeignKey(
-        settings.AUTH_USER_MODEL, db_index=True, editable=False, verbose_name=_('User')
+        settings.AUTH_USER_MODEL, db_index=True, editable=False,
+        on_delete=models.CASCADE, verbose_name=_('User')
     )
     document = models.ForeignKey(
-        Document, editable=False, verbose_name=_('Document')
+        Document, editable=False, on_delete=models.CASCADE,
+        verbose_name=_('Document')
     )
     datetime_accessed = models.DateTimeField(
         auto_now=True, db_index=True, verbose_name=_('Accessed')
@@ -836,7 +911,7 @@ class RecentDocument(models.Model):
     objects = RecentDocumentManager()
 
     def __str__(self):
-        return unicode(self.document)
+        return force_text(self.document)
 
     def natural_key(self):
         return self.document.natural_key() + self.user.natural_key()
@@ -846,3 +921,26 @@ class RecentDocument(models.Model):
         ordering = ('-datetime_accessed',)
         verbose_name = _('Recent document')
         verbose_name_plural = _('Recent documents')
+
+
+@python_2_unicode_compatible
+class DuplicatedDocument(models.Model):
+    document = models.ForeignKey(
+        Document, on_delete=models.CASCADE, related_name='duplicates',
+        verbose_name=_('Document')
+    )
+    documents = models.ManyToManyField(
+        Document, verbose_name=_('Duplicated documents')
+    )
+    datetime_added = models.DateTimeField(
+        auto_now_add=True, db_index=True, verbose_name=_('Added')
+    )
+
+    objects = DuplicatedDocumentManager()
+
+    def __str__(self):
+        return force_text(self.document)
+
+    class Meta:
+        verbose_name = _('Duplicated document')
+        verbose_name_plural = _('Duplicated documents')

@@ -5,7 +5,7 @@
     <li class="dropdown">
         <a href="#" class="dropdown-toggle" data-toggle="dropdown" role="button" aria-haspopup="true" aria-expanded="true">
             {% if link.icon %}
-            <i class="{{ link.icon }}"></i>
+            <i class="hidden-xs hidden-sm hidden-md {{ link.icon }}"></i>
             {% endif %}
 
             {{ link.label }}
@@ -24,14 +24,14 @@
     </li>
 {% else %}
 
-{% if as_li %}
-    <li class="{% if link.active and li_class_active %}{{ li_class_active }}{% endif %}">
-{% endif %}
+    {% if as_li %}
+        <li class="{% if link.active and li_class_active %}{{ li_class_active }}{% endif %}">
+    {% endif %}
 
-    {% include link_template|default:'navigation/generic_link_instance.html' %}
+        {% include link_template|default:'navigation/generic_link_instance.html' %}
 
-{% if as_li %}
-    </li>
-{% endif %}
+    {% if as_li %}
+        </li>
+    {% endif %}
 
 {% endif %}

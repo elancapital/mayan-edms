@@ -2,7 +2,9 @@ from __future__ import absolute_import, unicode_literals
 
 from django.utils.translation import ugettext_lazy as _
 
-from converter.permissions import permission_transformation_delete
+from converter.permissions import (
+    permission_transformation_delete, permission_transformation_edit
+)
 from navigation import Link
 
 from .permissions import (
@@ -12,13 +14,21 @@ from .permissions import (
     permission_document_version_revert, permission_document_view,
     permission_document_trash, permission_document_type_create,
     permission_document_type_delete, permission_document_type_edit,
-    permission_document_type_view, permission_empty_trash
+    permission_document_type_view, permission_empty_trash,
+    permission_document_version_view
 )
 from .settings import setting_zoom_max_level, setting_zoom_min_level
 
 
 def is_not_current_version(context):
-    return context['resolved_object'].document.latest_version.timestamp != context['resolved_object'].timestamp
+    # Use the 'object' key when the document version is an object in a list,
+    # such as when showing the version list view and use the 'resolved_object'
+    # when the document version is the context object, such as when showing the
+    # signatures list of a documern version. This can be fixed by updating
+    # the navigations app object resolution logic to use 'resolved_object' even
+    # for objects in a list.
+    document_version = context.get('object', context['resolved_object'])
+    return document_version.document.latest_version.timestamp != document_version.timestamp
 
 
 def is_first_page(context):
@@ -49,7 +59,7 @@ link_document_properties = Link(
     args='resolved_object.id'
 )
 link_document_version_list = Link(
-    icon='fa fa-code-fork', permissions=(permission_document_view,),
+    icon='fa fa-code-fork', permissions=(permission_document_version_view,),
     text=_('Versions'), view='documents:document_version_list',
     args='resolved_object.pk'
 )
@@ -63,6 +73,11 @@ link_document_clear_transformations = Link(
     permissions=(permission_transformation_delete,),
     text=_('Clear transformations'),
     view='documents:document_clear_transformations', args='resolved_object.id'
+)
+link_document_clone_transformations = Link(
+    permissions=(permission_transformation_edit,),
+    text=_('Clone transformations'),
+    view='documents:document_clone_transformations', args='resolved_object.id'
 )
 link_document_delete = Link(
     permissions=(permission_document_delete,), tags='dangerous',
@@ -127,9 +142,25 @@ link_document_multiple_update_page_count = Link(
 link_document_multiple_restore = Link(
     text=_('Restore'), view='documents:document_multiple_restore'
 )
+
+# Versions
 link_document_version_download = Link(
     args='resolved_object.pk', permissions=(permission_document_download,),
     text=_('Download version'), view='documents:document_version_download_form'
+)
+link_document_version_return_document = Link(
+    icon='fa fa-file', permissions=(permission_document_view,),
+    text=_('Document'), view='documents:document_preview',
+    args='resolved_object.document.pk'
+)
+link_document_version_return_list = Link(
+    icon='fa fa-code-fork', permissions=(permission_document_version_view,),
+    text=_('Versions'), view='documents:document_version_list',
+    args='resolved_object.document.pk'
+)
+link_document_version_view = Link(
+    args='resolved_object.pk', permissions=(permission_document_version_view,),
+    text=_('Details'), view='documents:document_version_view'
 )
 
 # Views
@@ -269,4 +300,17 @@ link_document_type_list = Link(
 link_document_type_setup = Link(
     icon='fa fa-file', permissions=(permission_document_type_view,),
     text=_('Document types'), view='documents:document_type_list'
+)
+link_duplicated_document_list = Link(
+    icon='fa fa-clone', text=_('Duplicated documents'),
+    view='documents:duplicated_document_list'
+)
+link_document_duplicates_list = Link(
+    args='resolved_object.id', icon='fa fa-clone',
+    permissions=(permission_document_view,), text=_('Duplicates'),
+    view='documents:document_duplicates_list',
+)
+link_duplicated_document_scan = Link(
+    icon='fa fa-clone', text=_('Duplicated document scan'),
+    view='documents:duplicated_document_scan'
 )

@@ -4,9 +4,9 @@ from django.contrib import messages
 from django.contrib.auth import get_user_model
 from django.contrib.auth.models import Group
 from django.contrib.contenttypes.models import ContentType
-from django.core.urlresolvers import reverse, reverse_lazy
 from django.http import HttpResponseRedirect
 from django.shortcuts import get_object_or_404
+from django.urls import reverse, reverse_lazy
 from django.utils.translation import ungettext, ugettext_lazy as _
 
 from common.views import (
@@ -240,7 +240,7 @@ class UserListView(SingleObjectListView):
             'title': _('Users'),
         }
 
-    def get_queryset(self):
+    def get_object_list(self):
         return get_user_model().objects.exclude(
             is_superuser=True
         ).exclude(is_staff=True).order_by('last_name', 'first_name')
@@ -274,6 +274,14 @@ class UserSetPasswordView(MultipleObjectFormActionView):
                     'title': _('Change password for user: %s') % queryset.first()
                 }
             )
+
+        return result
+
+    def get_form_extra_kwargs(self):
+        queryset = self.get_queryset()
+        result = {}
+        if queryset:
+            result['user'] = queryset.first()
 
         return result
 

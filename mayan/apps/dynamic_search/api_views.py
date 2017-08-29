@@ -1,11 +1,15 @@
 from __future__ import unicode_literals
 
+from django.utils.encoding import force_text
+
 from rest_framework import generics
 from rest_framework.exceptions import ParseError
 
 from rest_api.filters import MayanObjectPermissionsFilter
 
+from .classes import SearchModel
 from .mixins import SearchModelMixin
+from .serializers import SearchModelSerializer
 
 
 class APISearchView(SearchModelMixin, generics.ListAPIView):
@@ -15,11 +19,6 @@ class APISearchView(SearchModelMixin, generics.ListAPIView):
     GET:
         omit_serializer: true
         parameters:
-            - name: search_model
-              paramType: path
-              type: string
-              required: true
-              description: Possible values are "documents.Document" or "document.DocumentPageResult"
             - name: q
               paramType: query
               type: string
@@ -43,7 +42,7 @@ class APISearchView(SearchModelMixin, generics.ListAPIView):
                 query_string=self.request.GET, user=self.request.user
             )
         except Exception as exception:
-            raise ParseError(unicode(exception))
+            raise ParseError(force_text(exception))
 
         return queryset
 
@@ -55,11 +54,6 @@ class APIAdvancedSearchView(SearchModelMixin, generics.ListAPIView):
     GET:
         omit_serializer: true
         parameters:
-            - name: search_model
-              paramType: path
-              type: string
-              required: true
-              description: Possible values are "documents.Document" or "document.DocumentPageResult"
             - name: _match_all
               paramType: query
               type: string
@@ -91,6 +85,18 @@ class APIAdvancedSearchView(SearchModelMixin, generics.ListAPIView):
                 global_and_search=global_and_search
             )
         except Exception as exception:
-            raise ParseError(unicode(exception))
+            raise ParseError(force_text(exception))
 
         return queryset
+
+
+class APISearchModelList(generics.ListAPIView):
+    serializer_class = SearchModelSerializer
+    queryset = SearchModel.all()
+
+    def get(self, *args, **kwargs):
+        """
+        Returns a list of all the available search models.
+        """
+
+        return super(APISearchModelList, self).get(*args, **kwargs)

@@ -3,11 +3,12 @@ from __future__ import unicode_literals
 from django.conf.urls import url
 
 from .api_views import (
-    APIDocumentOCRView, APIDocumentPageContentView, APIDocumentVersionOCRView
+    APIDocumentOCRView, APIDocumentPageOCRContentView,
+    APIDocumentVersionOCRView
 )
 from .views import (
-    DocumentAllSubmitView, DocumentOCRContent, DocumentSubmitView,
-    DocumentSubmitManyView, DocumentTypeSettingsEditView,
+    DocumentOCRContent, DocumentOCRDownloadView, DocumentOCRErrorsListView,
+    DocumentSubmitView, DocumentSubmitManyView, DocumentTypeSettingsEditView,
     DocumentTypeSubmitView, EntryListView
 )
 
@@ -19,10 +20,6 @@ urlpatterns = [
     url(
         r'^document/(?P<pk>\d+)/submit/$', DocumentSubmitView.as_view(),
         name='document_submit'
-    ),
-    url(
-        r'^document/all/submit/$', DocumentAllSubmitView.as_view(),
-        name='document_submit_all'
     ),
     url(
         r'^document/type/submit/$', DocumentTypeSubmitView.as_view(),
@@ -37,7 +34,14 @@ urlpatterns = [
         DocumentTypeSettingsEditView.as_view(),
         name='document_type_ocr_settings'
     ),
-
+    url(
+        r'^documents/(?P<pk>\d+)/ocr/errors/$',
+        DocumentOCRErrorsListView.as_view(), name='document_ocr_error_list'
+    ),
+    url(
+        r'^documents/(?P<pk>\d+)/ocr/download/$',
+        DocumentOCRDownloadView.as_view(), name='document_ocr_download'
+    ),
     url(r'^all/$', EntryListView.as_view(), name='entry_list'),
 ]
 
@@ -52,7 +56,8 @@ api_urls = [
         name='document-version-ocr-submit-view'
     ),
     url(
-        r'^page/(?P<pk>\d+)/content/$', APIDocumentPageContentView.as_view(),
+        r'^page/(?P<pk>\d+)/content/$',
+        APIDocumentPageOCRContentView.as_view(),
         name='document-page-content-view'
     ),
 ]

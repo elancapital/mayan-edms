@@ -2,3 +2,4 @@
 django-filetransfers
 pdfminer
 pytesseract
+pdfminer

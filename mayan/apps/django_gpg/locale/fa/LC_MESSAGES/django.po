@@ -3,14 +3,14 @@
 # This file is distributed under the same license as the PACKAGE package.
 # 
 # Translators:
-# Translators:
+# Nima Towhidi <nima.towhidi@gmail.com>, 2017
 msgid ""
 msgstr ""
 "Project-Id-Version: Mayan EDMS\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2016-11-23 02:53-0400\n"
-"PO-Revision-Date: 2016-04-27 18:22+0000\n"
-"Last-Translator: Roberto Rosario\n"
+"POT-Creation-Date: 2017-08-27 12:45-0400\n"
+"PO-Revision-Date: 2017-05-12 07:25+0000\n"
+"Last-Translator: Nima Towhidi <nima.towhidi@gmail.com>\n"
 "Language-Team: Persian (http://www.transifex.com/rosarior/mayan-edms/language/fa/)\n"
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=UTF-8\n"
@@ -18,35 +18,35 @@ msgstr ""
 "Language: fa\n"
 "Plural-Forms: nplurals=1; plural=0;\n"
 
-#: apps.py:30
+#: apps.py:31
 msgid "Django GPG"
 msgstr ""
 
-#: apps.py:73 apps.py:76 forms.py:17
+#: apps.py:47 apps.py:50 forms.py:17
 msgid "Key ID"
 msgstr "شناسه کلید"
 
-#: apps.py:74 apps.py:87 forms.py:19 models.py:47
+#: apps.py:48 apps.py:61 forms.py:19 models.py:52
 msgid "User ID"
-msgstr ""
+msgstr "شناسه کاربری"
 
-#: apps.py:77 forms.py:34 models.py:50
+#: apps.py:51 forms.py:34 models.py:55
 msgid "Type"
 msgstr "نوع"
 
-#: apps.py:79 forms.py:23 models.py:31
+#: apps.py:53 forms.py:23 models.py:36
 msgid "Creation date"
 msgstr "تاریخ ایجاد"
 
-#: apps.py:82 forms.py:27 models.py:35
+#: apps.py:56 forms.py:27 models.py:40
 msgid "Expiration date"
 msgstr "تاریخ انقضا"
 
-#: apps.py:83
+#: apps.py:57
 msgid "No expiration"
-msgstr ""
+msgstr "بدون انقضا"
 
-#: apps.py:85 forms.py:32 models.py:42
+#: apps.py:59 forms.py:32 models.py:47
 msgid "Length"
 msgstr "طول"
 
@@ -54,13 +54,13 @@ msgstr "طول"
 msgid "None"
 msgstr "هیچکدام."
 
-#: forms.py:31 models.py:39
+#: forms.py:31 models.py:44
 msgid "Fingerprint"
-msgstr ""
+msgstr "اثر انگشت"
 
-#: forms.py:33 models.py:45
+#: forms.py:33 models.py:50
 msgid "Algorithm"
-msgstr ""
+msgstr "الگوریتم"
 
 #: forms.py:47
 msgid "Term"
@@ -95,9 +95,8 @@ msgid "Key management"
 msgstr "مدیریت کلید"
 
 #: links.py:37
-#| msgid "Import key"
 msgid "Upload key"
-msgstr ""
+msgstr "کلید آپلود"
 
 #: links.py:41 views.py:160
 msgid "Private keys"
@@ -151,30 +150,29 @@ msgstr "سند امضا شده است و امضا مورد تایید میباش
 msgid "Document is signed with a valid signature."
 msgstr "سند با امضای مورد تایید امضا شده است."
 
-#: models.py:27
+#: models.py:32
 msgid "ASCII armored version of the key."
 msgstr ""
 
-#: models.py:28
+#: models.py:33
 msgid "Key data"
 msgstr ""
 
-#: models.py:56
-#| msgid "Key ID"
+#: models.py:61
 msgid "Key"
-msgstr ""
+msgstr "کلید"
 
-#: models.py:57
+#: models.py:62
 msgid "Keys"
-msgstr ""
+msgstr "کلیدها"
 
-#: models.py:63
+#: models.py:68
 msgid "Invalid key data"
 msgstr ""
 
-#: models.py:66
+#: models.py:71
 msgid "Key already exists."
-msgstr ""
+msgstr "این کلید از قبل وجود دارد."
 
 #: permissions.py:10
 msgid "Delete keys"
@@ -182,7 +180,7 @@ msgstr "پاک و یا حذف کلیدها"
 
 #: permissions.py:13
 msgid "Download keys"
-msgstr ""
+msgstr "دانلود کلیدها"
 
 #: permissions.py:16
 msgid "Import keys from keyservers"
@@ -193,16 +191,14 @@ msgid "Use keys to sign content"
 msgstr ""
 
 #: permissions.py:22
-#| msgid "public keys"
 msgid "Upload keys"
-msgstr ""
+msgstr "آپلود کلیدها"
 
 #: permissions.py:25
 msgid "View keys"
 msgstr "دیدن کلیدها"
 
 #: settings.py:10
-#| msgid "Signature error."
 msgid "Signatures"
 msgstr "امضاها"
 
@@ -215,13 +211,11 @@ msgid "Path to the GPG binary."
 msgstr "محل کتایخانه باینری GPG"
 
 #: settings.py:25
-#| msgid "List of keyservers to be queried for unknown keys."
 msgid "Keyserver used to query for keys."
 msgstr ""
 
 #: views.py:38
 #, python-format
-#| msgid "Delete keys"
 msgid "Delete key: %s"
 msgstr ""
 
@@ -232,7 +226,6 @@ msgstr ""
 
 #: views.py:68
 #, python-format
-#| msgid "Import key"
 msgid "Import key ID: %s?"
 msgstr ""
 
@@ -242,7 +235,6 @@ msgstr "وارد کردن کلید"
 
 #: views.py:78
 #, python-format
-#| msgid "Unable to import key id: %(key_id)s; %(error)s"
 msgid "Unable to import key: %(key_id)s; %(error)s"
 msgstr ""
 
@@ -266,59 +258,3 @@ msgstr ""
 #: views.py:138
 msgid "Upload new key"
 msgstr ""
-
-#~ msgid "Unknown"
-#~ msgstr "unknown"
-
-#~ msgid "ID"
-#~ msgstr "ID"
-
-#~ msgid "Owner"
-#~ msgstr "Owner"
-
-#~ msgid "Identities"
-#~ msgstr "Identifies"
-
-#~ msgid "Key: %s, deleted successfully."
-#~ msgstr "Key: %s, deleted successfully."
-
-#~ msgid "Delete key"
-#~ msgstr "Delete key"
-
-#~ msgid ""
-#~ "Delete key %s? If you delete a public key that is part of a public/private "
-#~ "pair the private key will be deleted as well."
-#~ msgstr ""
-#~ "Are you sure you wish to delete key: %s?  If you try to delete a public key "
-#~ "that is part of a public/private pair the private key will be deleted as "
-#~ "well."
-
-#~ msgid "results"
-#~ msgstr "results"
-
-#~ msgid "Key: %s, imported successfully."
-#~ msgstr "Key: %s, imported successfully."
-
-#~ msgid "Are you sure you wish to import key id: %s?"
-#~ msgstr "Are you sure you wish to import key id: %s?"
-
-#~ msgid "Disabled"
-#~ msgstr "disabled"
-
-#~ msgid "Expired"
-#~ msgstr "expired"
-
-#~ msgid "Revoked"
-#~ msgstr "revoked"
-
-#~ msgid "private keys"
-#~ msgstr "private keys"
-
-#~ msgid "type"
-#~ msgstr "type"
-
-#~ msgid "query keyservers"
-#~ msgstr "query keyservers"
-
-#~ msgid "key management"
-#~ msgstr "key management"

@@ -1,11 +1,14 @@
 from __future__ import unicode_literals
 
 from django import forms
-from django.core.urlresolvers import reverse
+from django.urls import reverse
+from django.utils.encoding import force_text
 from django.utils.html import strip_tags
 from django.utils.http import urlencode
 from django.utils.safestring import mark_safe
 from django.utils.translation import ugettext, ugettext_lazy as _
+
+from common.utils import index_or_default
 
 from .settings import (
     setting_display_size, setting_preview_size, setting_thumbnail_size
@@ -98,12 +101,26 @@ class InstanceImageWidget(object):
     preview_query_dict = {}
     image_class = 'lazy-load'
     title = None
+    width = None
+    height = None
 
     # Click view
     def get_click_view_kwargs(self, instance):
-        return {
-            'pk': instance.pk
-        }
+        """
+        Determine if the view is a template or API view and vary the view
+        keyword arguments
+        """
+
+        if self.click_view_name.startswith('rest_api'):
+            return {
+                'pk': instance.document.pk,
+                'version_pk': instance.document_version.pk,
+                'page_pk': instance.pk
+            }
+        else:
+            return {
+                'pk': instance.pk,
+            }
 
     def get_click_view_query_dict(self, instance):
         return self.click_view_query_dict
@@ -141,7 +158,9 @@ class InstanceImageWidget(object):
     # Preview view
     def get_preview_view_kwargs(self, instance):
         return {
-            'pk': instance.pk
+            'pk': instance.document.pk,
+            'version_pk': instance.document_version.pk,
+            'page_pk': instance.pk
         }
 
     def get_preview_view_query_dict(self, instance):
@@ -206,10 +225,16 @@ class InstanceImageWidget(object):
                 )
 
             result.append(
-                '<i class="spinner fa fa-spinner fa-pulse fa-3x fa-fw"></i> '
-                '<img class="thin_border {image_class}" '
+                '<div class="spinner-container text-primary" style="height: {height}px;">'
+                '<span class="spinner-icon fa-stack fa-lg">'
+                '<i class="fa fa-file-o fa-stack-2x"></i>'
+                '<i class="fa fa-clock-o fa-stack-1x"></i>'
+                '</span>'
+                '</div>'
+                '<img class="thin_border {image_class} pull-left" style="width: {width};"'
                 'data-url="{preview_full_url}" src="#" '
-                'alt="{alt_text}" /> '.format(
+                '/> '.format(
+                    width=self.width or '100%', height=self.height or '150',
                     image_class=self.image_class,
                     preview_full_url=self.get_preview_view_url(instance=instance),
                     alt_text=self.alt_text
@@ -238,6 +263,8 @@ class BaseDocumentThumbnailWidget(InstanceImageWidget):
     preview_view_query_dict = {
         'size': setting_thumbnail_size.value
     }
+    width = setting_thumbnail_size.value.split('x')[0]
+    height = 150
 
     def get_destination_url(self, instance):
         return instance.get_absolute_url()
@@ -250,29 +277,102 @@ class CarouselDocumentPageThumbnailWidget(BaseDocumentThumbnailWidget):
     preview_view_query_dict = {
         'size': setting_display_size.value
     }
+    width = setting_preview_size.value.split('x')[0]
+    height = index_or_default(
+        instance=setting_preview_size.value.split('x'),
+        index=1, default=setting_preview_size.value.split('x')[0]
+    )
 
 
 class DocumentThumbnailWidget(BaseDocumentThumbnailWidget):
+    width = '100%'
+
     def get_click_view_kwargs(self, instance):
         return {
-            'pk': instance.latest_version.pages.first().pk
+            'pk': instance.pk,
+            'version_pk': instance.latest_version.pk,
+            'page_pk': instance.pages.first().pk
         }
+
+    def get_click_view_url(self, instance):
+        first_page = instance.pages.first()
+        if first_page:
+            return super(DocumentThumbnailWidget, self).get_click_view_url(
+                instance=instance
+            )
+        else:
+            return '#'
 
     def get_preview_view_kwargs(self, instance):
         return {
-            'pk': instance.latest_version.pages.first().pk
+            'pk': instance.pk,
+            'version_pk': instance.latest_version.pk,
+            'page_pk': instance.pages.first().pk
         }
+
+    def get_preview_view_url(self, instance):
+        first_page = instance.pages.first()
+        if first_page:
+            return super(DocumentThumbnailWidget, self).get_preview_view_url(
+                instance=instance
+            )
+        else:
+            return ''
 
     def get_title(self, instance):
         return getattr(instance, 'label', None)
 
     def is_valid(self, instance):
-        return instance.latest_version.pages.all()
+        return instance.pages
 
 
 class DocumentPageThumbnailWidget(BaseDocumentThumbnailWidget):
+    width = '100%'
+
     def get_title(self, instance):
-        return unicode(instance)
+        return force_text(instance)
+
+
+class DocumentVersionThumbnailWidget(DocumentThumbnailWidget):
+    width = '100%'
+
+    def get_click_view_kwargs(self, instance):
+        return {
+            'pk': instance.document.pk,
+            'version_pk': instance.pk,
+            'page_pk': instance.pages.first().pk
+        }
+
+    def get_click_view_url(self, instance):
+        first_page = instance.pages.first()
+        if first_page:
+            return super(DocumentVersionThumbnailWidget, self).get_click_view_url(
+                instance=instance
+            )
+        else:
+            return '#'
+
+    def get_preview_view_kwargs(self, instance):
+        return {
+            'pk': instance.document.pk,
+            'version_pk': instance.pk,
+            'page_pk': instance.pages.first().pk
+        }
+
+    def get_preview_view_url(self, instance):
+        first_page = instance.pages.first()
+        if first_page:
+            return super(DocumentVersionThumbnailWidget, self).get_preview_view_url(
+                instance=instance
+            )
+        else:
+            return ''
+
+    def get_title(self, instance):
+        return getattr(instance, 'label', None)
+
+    def is_valid(self, instance):
+        return instance.pages
 
 
 class InteractiveDocumentPageWidget(BaseDocumentThumbnailWidget):

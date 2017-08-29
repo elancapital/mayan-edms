@@ -4,16 +4,17 @@ import itertools
 import logging
 
 from django.contrib.contenttypes.models import ContentType
-from django.core.urlresolvers import reverse
 from django.http import Http404, HttpResponseRedirect
 from django.shortcuts import get_object_or_404
+from django.urls import reverse
+from django.utils.encoding import force_text
 from django.utils.translation import ugettext_lazy as _
 
 from common.views import (
     AssignRemoveView, SingleObjectCreateView, SingleObjectDeleteView,
     SingleObjectListView
 )
-from permissions import PermissionNamespace
+from permissions import PermissionNamespace, Permission
 from permissions.models import StoredPermission
 
 from .classes import ModelPermission
@@ -138,9 +139,10 @@ class ACLListView(SingleObjectListView):
             'title': _('Access control lists for: %s' % self.content_object),
         }
 
-    def get_queryset(self):
+    def get_object_list(self):
         return AccessControlList.objects.filter(
-            content_type=self.object_content_type, object_id=self.content_object.pk
+            content_type=self.object_content_type,
+            object_id=self.content_object.pk
         )
 
 
@@ -155,7 +157,7 @@ class ACLPermissionsView(AssignRemoveView):
 
         for namespace, permissions in itertools.groupby(entries, lambda entry: entry.namespace):
             permission_options = [
-                (unicode(permission.pk), permission) for permission in permissions
+                (force_text(permission.pk), permission) for permission in permissions
             ]
             results.append(
                 (PermissionNamespace.get(namespace), permission_options)
@@ -228,6 +230,7 @@ class ACLPermissionsView(AssignRemoveView):
         return None
 
     def left_list(self):
+        Permission.refresh()
         return ACLPermissionsView.generate_choices(self.get_available_list())
 
     def remove(self, item):

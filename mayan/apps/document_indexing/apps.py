@@ -3,7 +3,7 @@ from __future__ import absolute_import, unicode_literals
 from kombu import Exchange, Queue
 
 from django.apps import apps
-from django.db.models.signals import post_save, post_delete
+from django.db.models.signals import post_delete, pre_delete
 from django.utils.translation import ugettext_lazy as _
 
 from acls import ModelPermission
@@ -21,9 +21,8 @@ from navigation import SourceColumn
 from rest_api.classes import APIEndPoint
 
 from .handlers import (
-    document_created_index_update, create_default_document_index,
-    document_index_delete, document_metadata_index_update,
-    document_metadata_index_post_delete
+    create_default_document_index, handler_delete_empty,
+    handler_index_document, handler_remove_document
 )
 from .links import (
     link_document_index_list, link_index_main_menu, link_index_setup,
@@ -38,18 +37,21 @@ from .permissions import (
     permission_document_indexing_create, permission_document_indexing_delete,
     permission_document_indexing_edit, permission_document_indexing_view
 )
+from .queues import *  # NOQA
 from .widgets import get_instance_link, index_instance_item_link, node_level
 
 
 class DocumentIndexingApp(MayanAppConfig):
     app_namespace = 'indexing'
     app_url = 'indexing'
+    has_tests = True
     name = 'document_indexing'
-    test = True
     verbose_name = _('Document indexing')
 
     def ready(self):
         super(DocumentIndexingApp, self).ready()
+
+        APIEndPoint(app=self, version_string='1')
 
         Document = apps.get_model(
             app_label='documents', model_name='Document'
@@ -59,18 +61,12 @@ class DocumentIndexingApp(MayanAppConfig):
             app_label='documents', model_name='DocumentType'
         )
 
-        DocumentMetadata = apps.get_model(
-            app_label='metadata', model_name='DocumentMetadata'
-        )
-
         DocumentIndexInstanceNode = self.get_model('DocumentIndexInstanceNode')
 
         Index = self.get_model('Index')
         IndexInstance = self.get_model('IndexInstance')
         IndexInstanceNode = self.get_model('IndexInstanceNode')
         IndexTemplateNode = self.get_model('IndexTemplateNode')
-
-        APIEndPoint(app=self, version_string='1')
 
         ModelPermission.register(
             model=Index, permissions=(
@@ -90,8 +86,16 @@ class DocumentIndexingApp(MayanAppConfig):
         )
 
         SourceColumn(
-            source=IndexInstance, label=_('Items'),
-            func=lambda context: context['object'].get_item_count(
+            source=IndexInstance, label=_('Total levels'),
+            func=lambda context: context[
+                'object'
+            ].instance_root.get_descendants_count()
+        )
+        SourceColumn(
+            source=IndexInstance, label=_('Total documents'),
+            func=lambda context: context[
+                'object'
+            ].instance_root.get_descendants_document_count(
                 user=context['request'].user
             )
         )
@@ -116,25 +120,37 @@ class DocumentIndexingApp(MayanAppConfig):
         )
 
         SourceColumn(
-            source=IndexInstanceNode, label=_('Node'),
+            source=IndexInstanceNode, label=_('Level'),
             func=lambda context: index_instance_item_link(context['object'])
         )
         SourceColumn(
-            source=IndexInstanceNode, label=_('Items'),
-            func=lambda context: context['object'].get_item_count(
+            source=IndexInstanceNode, label=_('Levels'),
+            func=lambda context: context['object'].get_descendants_count()
+        )
+        SourceColumn(
+            source=IndexInstanceNode, label=_('Documents'),
+            func=lambda context: context[
+                'object'
+            ].get_descendants_document_count(
                 user=context['request'].user
             )
         )
 
         SourceColumn(
-            source=DocumentIndexInstanceNode, label=_('Node'),
+            source=DocumentIndexInstanceNode, label=_('Level'),
             func=lambda context: get_instance_link(
                 index_instance_node=context['object'],
             )
         )
         SourceColumn(
-            source=DocumentIndexInstanceNode, label=_('Items'),
-            func=lambda context: context['object'].get_item_count(
+            source=DocumentIndexInstanceNode, label=_('Levels'),
+            func=lambda context: context['object'].get_descendants_count()
+        )
+        SourceColumn(
+            source=DocumentIndexInstanceNode, label=_('Documents'),
+            func=lambda context: context[
+                'object'
+            ].get_descendants_document_count(
                 user=context['request'].user
             )
         )
@@ -145,13 +161,16 @@ class DocumentIndexingApp(MayanAppConfig):
 
         app.conf.CELERY_ROUTES.update(
             {
-                'document_indexing.tasks.task_delete_empty_index_nodes': {
+                'document_indexing.tasks.task_delete_empty': {
+                    'queue': 'indexing'
+                },
+                'document_indexing.tasks.task_remove_document': {
                     'queue': 'indexing'
                 },
                 'document_indexing.tasks.task_index_document': {
                     'queue': 'indexing'
                 },
-                'document_indexing.tasks.task_do_rebuild_all_indexes': {
+                'document_indexing.tasks.task_rebuild_index': {
                     'queue': 'tools'
                 },
             }
@@ -185,24 +204,18 @@ class DocumentIndexingApp(MayanAppConfig):
         menu_tools.bind_links(links=(link_rebuild_index_instances,))
 
         post_delete.connect(
-            document_index_delete, dispatch_uid='document_index_delete',
+            handler_delete_empty, dispatch_uid='handler_delete_empty',
             sender=Document
         )
-        post_delete.connect(
-            document_metadata_index_post_delete,
-            dispatch_uid='document_metadata_index_post_delete',
-            sender=DocumentMetadata
+        pre_delete.connect(
+            handler_remove_document, dispatch_uid='handler_remove_document',
+            sender=Document
         )
         post_document_created.connect(
-            document_created_index_update,
-            dispatch_uid='document_created_index_update', sender=Document
+            handler_index_document,
+            dispatch_uid='handler_index_document', sender=Document
         )
         post_initial_document_type.connect(
             create_default_document_index,
             dispatch_uid='create_default_document_index', sender=DocumentType
-        )
-        post_save.connect(
-            document_metadata_index_update,
-            dispatch_uid='document_metadata_index_update',
-            sender=DocumentMetadata
         )

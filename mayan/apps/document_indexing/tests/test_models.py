@@ -1,10 +1,11 @@
 from __future__ import unicode_literals
 
-from django.core.files.base import File
-from django.test import TestCase, override_settings
+from django.test import override_settings
+from django.utils.encoding import force_text
 
+from common.tests import BaseTestCase
 from documents.models import DocumentType
-from documents.tests import TEST_SMALL_DOCUMENT_PATH, TEST_DOCUMENT_TYPE
+from documents.tests import TEST_SMALL_DOCUMENT_PATH, TEST_DOCUMENT_TYPE_LABEL
 from metadata.models import MetadataType, DocumentTypeMetadataType
 
 from ..models import Index, IndexInstanceNode, IndexTemplateNode
@@ -16,19 +17,21 @@ from .literals import (
 
 
 @override_settings(OCR_AUTO_OCR=False)
-class IndexTestCase(TestCase):
+class IndexTestCase(BaseTestCase):
     def setUp(self):
+        super(IndexTestCase, self).setUp()
         self.document_type = DocumentType.objects.create(
-            label=TEST_DOCUMENT_TYPE
+            label=TEST_DOCUMENT_TYPE_LABEL
         )
 
         with open(TEST_SMALL_DOCUMENT_PATH) as file_object:
             self.document = self.document_type.new_document(
-                file_object=File(file_object)
+                file_object=file_object
             )
 
     def tearDown(self):
         self.document_type.delete()
+        super(IndexTestCase, self).tearDown()
 
     def test_indexing(self):
         metadata_type = MetadataType.objects.create(
@@ -114,7 +117,7 @@ class IndexTestCase(TestCase):
             ), ['', '0003']
         )
 
-        # Document deleted from, index structure should update
+        # Document deleted, index structure should update
         self.document.delete()
         self.assertEqual(
             list(
@@ -160,10 +163,70 @@ class IndexTestCase(TestCase):
         self.assertEqual(list(IndexInstanceNode.objects.all()), [])
 
         # Rebuild all indexes
-        IndexInstanceNode.objects.rebuild_all_indexes()
+        Index.objects.rebuild()
 
         # Check that document is in instance node
         instance_node = IndexInstanceNode.objects.get(value='0001')
         self.assertQuerysetEqual(
             instance_node.documents.all(), [repr(self.document)]
         )
+
+    def test_dual_level_dual_document_index(self):
+        """
+        Test creation of an index instance with two first levels with different
+        values and two second levels with the same value but as separate
+        children of each of the first levels. GitLab issue #391
+        """
+        with open(TEST_SMALL_DOCUMENT_PATH) as file_object:
+            self.document_2 = self.document_type.new_document(
+                file_object=file_object
+            )
+
+        # Create empty index
+        index = Index.objects.create(label=TEST_INDEX_LABEL)
+
+        # Add our document type to the new index
+        index.document_types.add(self.document_type)
+
+        # Create simple index template
+        root = index.template_root
+        level_1 = index.node_templates.create(
+            parent=root, expression='{{ document.uuid }}',
+            link_documents=False
+        )
+
+        index.node_templates.create(
+            parent=level_1, expression='{{ document.label }}',
+            link_documents=True
+        )
+
+        Index.objects.rebuild()
+
+        self.assertEqual(
+            [instance.value for instance in IndexInstanceNode.objects.all().order_by('pk')],
+            [
+                '', force_text(self.document_2.uuid), self.document_2.label,
+                force_text(self.document.uuid), self.document.label
+            ]
+        )
+
+    def test_multi_level_template_with_no_result_parent(self):
+        """
+        On a two level template if the first level doesn't return a result
+        the indexing should stop. GitLab issue #391.
+        """
+        index = Index.objects.create(label=TEST_INDEX_LABEL)
+        index.document_types.add(self.document_type)
+
+        level_1 = index.node_templates.create(
+            parent=index.template_root,
+            expression='',
+            link_documents=True
+        )
+
+        index.node_templates.create(
+            parent=level_1, expression='{{ document.label }}',
+            link_documents=True
+        )
+
+        Index.objects.rebuild()

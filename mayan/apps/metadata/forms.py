@@ -16,10 +16,17 @@ class DocumentMetadataForm(forms.Form):
         label=_('Name'), required=False,
         widget=forms.TextInput(attrs={'readonly': 'readonly'})
     )
-    value = forms.CharField(label=_('Value'), required=False)
+    value = forms.CharField(
+        label=_('Value'), required=False, widget=forms.TextInput(
+            attrs={'class': 'metadata-value'}
+        )
+    )
     update = forms.BooleanField(
         initial=True, label=_('Update'), required=False
     )
+
+    class Media:
+        js = ('metadata/js/metadata_form.js',)
 
     def __init__(self, *args, **kwargs):
         super(DocumentMetadataForm, self).__init__(*args, **kwargs)
@@ -60,6 +67,9 @@ class DocumentMetadataForm(forms.Form):
                         choices.insert(0, ('', '------'))
                     self.fields['value'].choices = choices
                     self.fields['value'].required = required
+                    self.fields['value'].widget.attrs.update(
+                        {'class': 'metadata-value'}
+                    )
                 except Exception as exception:
                     self.fields['value'].initial = _(
                         'Lookup value error: %s'
@@ -117,12 +127,16 @@ class DocumentAddMetadataForm(forms.Form):
     )
 
     def __init__(self, *args, **kwargs):
-        document_type = kwargs.pop('document_type')
-        queryset = kwargs.pop(
-            'queryset', MetadataType.objects.get_for_document_type(
-                document_type=document_type
+        document_type = kwargs.pop('document_type', None)
+
+        if document_type:
+            queryset = kwargs.pop(
+                'queryset', MetadataType.objects.get_for_document_type(
+                    document_type=document_type
+                )
             )
-        )
+        else:
+            queryset = MetadataType.objects.none()
 
         super(DocumentAddMetadataForm, self).__init__(*args, **kwargs)
 
@@ -155,4 +169,71 @@ class DocumentMetadataRemoveForm(DocumentMetadataForm):
 
 DocumentMetadataRemoveFormSet = formset_factory(
     DocumentMetadataRemoveForm, extra=0
+)
+
+
+class DocumentTypeMetadataTypeRelationshipForm(forms.Form):
+    label = forms.CharField(
+        label=_('Label'), required=False,
+        widget=forms.TextInput(attrs={'readonly': 'readonly'})
+    )
+    relationship = forms.ChoiceField(
+        label=_('Relationship'),
+        widget=forms.RadioSelect(), choices=(
+            ('none', _('None')),
+            ('optional', _('Optional')),
+            ('required', _('Required')),
+        )
+    )
+
+    def __init__(self, *args, **kwargs):
+        super(DocumentTypeMetadataTypeRelationshipForm, self).__init__(
+            *args, **kwargs
+        )
+        if self.initial['main_model'] == 'metadata_type':
+            self.fields['label'].initial = self.initial['document_type'].label
+        else:
+            self.fields['label'].initial = self.initial['metadata_type'].label
+
+        relationship = self.initial['document_type'].metadata.filter(
+            metadata_type=self.initial['metadata_type']
+        )
+        if relationship.exists():
+            if relationship.get().required:
+                self.fields['relationship'].initial = 'required'
+            else:
+                self.fields['relationship'].initial = 'optional'
+        else:
+            self.fields['relationship'].initial = 'none'
+
+    def save(self):
+        relationship = self.initial['document_type'].metadata.filter(
+            metadata_type=self.initial['metadata_type']
+        )
+        if self.cleaned_data['relationship'] == 'none':
+            relationship.delete()
+        elif self.cleaned_data['relationship'] == 'optional':
+            if relationship.exists():
+                instance = relationship.get()
+                instance.required = False
+                instance.save()
+            else:
+                relationship.create(
+                    document_type=self.initial['document_type'],
+                    metadata_type=self.initial['metadata_type']
+                )
+        elif self.cleaned_data['relationship'] == 'required':
+            if relationship.exists():
+                instance = relationship.get()
+                instance.required = True
+                instance.save()
+            else:
+                relationship.create(
+                    document_type=self.initial['document_type'],
+                    metadata_type=self.initial['metadata_type'], required=True
+                )
+
+
+DocumentTypeMetadataTypeRelationshipFormSet = formset_factory(
+    DocumentTypeMetadataTypeRelationshipForm, extra=0
 )

@@ -1,14 +1,14 @@
 from __future__ import unicode_literals
 
 from django.conf.urls import url
-from django.contrib.staticfiles.templatetags.staticfiles import static
-from django.views.generic import RedirectView
 from django.views.i18n import javascript_catalog, set_language
 
+from .api_views import APIContentTypeList
 from .views import (
-    AboutView, CurrentUserDetailsView, CurrentUserEditView,
+    AboutView, CheckVersionView, CurrentUserDetailsView, CurrentUserEditView,
     CurrentUserLocaleProfileDetailsView, CurrentUserLocaleProfileEditView,
-    FilterResultListView, FilterSelectView, HomeView, LicenseView,
+    FaviconRedirectView, FilterResultListView, FilterSelectView, HomeView,
+    LicenseView, ObjectErrorLogEntryListClearView, ObjectErrorLogEntryListView,
     PackagesLicensesView, SetupListView, ToolsListView,
     multi_object_action_view
 )
@@ -16,6 +16,10 @@ from .views import (
 urlpatterns = [
     url(r'^$', HomeView.as_view(), name='home'),
     url(r'^about/$', AboutView.as_view(), name='about_view'),
+    url(
+        r'^check_version/$', CheckVersionView.as_view(),
+        name='check_version_view'
+    ),
     url(r'^license/$', LicenseView.as_view(), name='license_view'),
     url(
         r'^packages/licenses/$', PackagesLicensesView.as_view(),
@@ -51,13 +55,20 @@ urlpatterns = [
         r'^filter/(?P<slug>[\w-]+)/results/$', FilterResultListView.as_view(),
         name='filter_results'
     ),
+    url(
+        r'^object/(?P<app_label>[-\w]+)/(?P<model>[-\w]+)/(?P<object_id>\d+)/errors/$',
+        ObjectErrorLogEntryListView.as_view(), name='object_error_list'
+    ),
+    url(
+        r'^object/(?P<app_label>[-\w]+)/(?P<model>[-\w]+)/(?P<object_id>\d+)/errors/clear/$',
+        ObjectErrorLogEntryListClearView.as_view(),
+        name='object_error_list_clear'
+    ),
 ]
 
 urlpatterns += [
     url(
-        r'^favicon\.ico$', RedirectView.as_view(
-            permanent=True, url=static('appearance/images/favicon.ico')
-        )
+        r'^favicon\.ico$', FaviconRedirectView.as_view()
     ),
     url(
         r'^jsi18n/(?P<packages>\S+?)/$', javascript_catalog,
@@ -65,5 +76,12 @@ urlpatterns += [
     ),
     url(
         r'^set_language/$', set_language, name='set_language'
+    ),
+]
+
+api_urls = [
+    url(
+        r'^content_types/$', APIContentTypeList.as_view(),
+        name='content-type-list'
     ),
 ]

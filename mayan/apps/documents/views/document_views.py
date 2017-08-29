@@ -4,9 +4,9 @@ import logging
 
 from django.contrib import messages
 from django.core.exceptions import PermissionDenied
-from django.core.urlresolvers import reverse, reverse_lazy
 from django.http import HttpResponseRedirect
 from django.shortcuts import get_object_or_404
+from django.urls import reverse, reverse_lazy
 from django.utils.http import urlencode
 from django.utils.translation import ugettext_lazy as _, ungettext
 
@@ -18,16 +18,22 @@ from common.generics import (
     SingleObjectDownloadView, SingleObjectEditView, SingleObjectListView
 )
 from common.mixins import MultipleInstanceActionMixin
+from common.utils import encapsulate
 from converter.models import Transformation
-from converter.permissions import permission_transformation_delete
+from converter.permissions import (
+    permission_transformation_delete, permission_transformation_edit
+)
 
 from ..events import event_document_download, event_document_view
 from ..forms import (
-    DocumentDownloadForm, DocumentForm, DocumentPreviewForm,
-    DocumentPrintForm, DocumentPropertiesForm, DocumentTypeSelectForm,
+    DocumentDownloadForm, DocumentForm, DocumentPageNumberForm,
+    DocumentPreviewForm, DocumentPrintForm, DocumentPropertiesForm,
+    DocumentTypeSelectForm,
 )
 from ..literals import PAGE_RANGE_RANGE, DEFAULT_ZIP_FILENAME
-from ..models import DeletedDocument, Document, RecentDocument
+from ..models import (
+    DeletedDocument, Document, DuplicatedDocument, RecentDocument
+)
 from ..permissions import (
     permission_document_delete, permission_document_download,
     permission_document_print, permission_document_properties_edit,
@@ -36,41 +42,49 @@ from ..permissions import (
     permission_empty_trash
 )
 from ..settings import setting_print_size
-from ..tasks import task_update_page_count
+from ..tasks import task_delete_document, task_update_page_count
 from ..utils import parse_range
 
 logger = logging.getLogger(__name__)
 
 
 class DocumentListView(SingleObjectListView):
-    extra_context = {
-        'hide_links': True,
-        'title': _('All documents'),
-    }
-
     object_permission = permission_document_view
 
     def get_document_queryset(self):
-        return Document.objects.defer('description', 'uuid', 'date_added', 'language', 'in_trash', 'deleted_date_time').all()
+        return Document.objects.defer(
+            'description', 'uuid', 'date_added', 'language', 'in_trash',
+            'deleted_date_time'
+        ).all()
 
-    def get_queryset(self):
-        self.queryset = self.get_document_queryset().filter(is_stub=False)
-        return super(DocumentListView, self).get_queryset()
+    def get_extra_context(self):
+        return {
+            'hide_links': True,
+            'list_as_items': True,
+            'title': _('All documents'),
+        }
+
+    def get_object_list(self):
+        return self.get_document_queryset().filter(is_stub=False)
 
 
 class DeletedDocumentListView(DocumentListView):
     object_permission = None
-
-    extra_context = {
-        'hide_link': True,
-        'title': _('Documents in trash'),
-    }
 
     def get_document_queryset(self):
         return AccessControlList.objects.filter_by_access(
             permission_document_view, self.request.user,
             queryset=DeletedDocument.trash.all()
         )
+
+    def get_extra_context(self):
+        context = super(DeletedDocumentListView, self).get_extra_context()
+        context.update(
+            {
+                'title': _('Documents in trash'),
+            }
+        )
+        return context
 
 
 class DeletedDocumentDeleteView(ConfirmView):
@@ -88,7 +102,9 @@ class DeletedDocumentDeleteView(ConfirmView):
             obj=source_document
         )
 
-        instance.delete()
+        task_delete_document.apply_async(
+            kwargs={'deleted_document_id': instance.pk}
+        )
 
     def view_action(self):
         instance = get_object_or_404(DeletedDocument, pk=self.kwargs['pk'])
@@ -161,6 +177,39 @@ class DocumentDocumentTypeEditView(MultipleObjectFormActionView):
                 'Document type for "%s" changed successfully.'
             ) % instance
         )
+
+
+class DocumentDuplicatesListView(DocumentListView):
+    def dispatch(self, request, *args, **kwargs):
+        AccessControlList.objects.check_access(
+            permissions=permission_document_view, user=self.request.user,
+            obj=self.get_document()
+        )
+
+        return super(
+            DocumentDuplicatesListView, self
+        ).dispatch(request, *args, **kwargs)
+
+    def get_document(self):
+        return get_object_or_404(Document, pk=self.kwargs['pk'])
+
+    def get_extra_context(self):
+        context = super(DocumentDuplicatesListView, self).get_extra_context()
+        context.update(
+            {
+                'object': self.get_document(),
+                'title': _('Duplicates for document: %s') % self.get_document(),
+            }
+        )
+        return context
+
+    def get_object_list(self):
+        try:
+            return DuplicatedDocument.objects.get(
+                document=self.get_document()
+            ).documents.all()
+        except DuplicatedDocument.DoesNotExist:
+            return Document.objects.none()
 
 
 class DocumentEditView(SingleObjectEditView):
@@ -327,25 +376,32 @@ class EmptyTrashCanView(ConfirmView):
 
     def view_action(self):
         for deleted_document in DeletedDocument.objects.all():
-            deleted_document.delete()
+            task_delete_document.apply_async(
+                kwargs={'deleted_document_id': deleted_document.pk}
+            )
 
         messages.success(self.request, _('Trash emptied successfully'))
 
 
 class RecentDocumentListView(DocumentListView):
-    extra_context = {
-        'hide_links': True,
-        'title': _('Recent documents'),
-    }
-
     def get_document_queryset(self):
         return RecentDocument.objects.get_for_user(self.request.user)
+
+    def get_extra_context(self):
+        context = super(RecentDocumentListView, self).get_extra_context()
+        context.update(
+            {
+                'title': _('Recent documents'),
+            }
+        )
+        return context
 
 
 class DocumentDownloadFormView(FormView):
     form_class = DocumentDownloadForm
     model = Document
     multiple_download_view = 'documents:document_multiple_download'
+    querystring_form_fields = ('compressed', 'zip_filename')
     single_download_view = 'documents:document_download'
 
     def get_document_queryset(self):
@@ -363,7 +419,7 @@ class DocumentDownloadFormView(FormView):
     def get_extra_context(self):
         subtemplates_list = [
             {
-                'name': 'appearance/generic_list_subtemplate.html',
+                'name': 'appearance/generic_list_items_subtemplate.html',
                 'context': {
                     'object_list': self.queryset,
                     'hide_link': True,
@@ -391,15 +447,22 @@ class DocumentDownloadFormView(FormView):
         return kwargs
 
     def form_valid(self, form):
-        querystring = urlencode(
+        querystring_dictionary = {}
+
+        for field in self.querystring_form_fields:
+            data = form.cleaned_data[field]
+            if data:
+                querystring_dictionary[field] = data
+
+        querystring_dictionary.update(
             {
-                'compressed': form.cleaned_data['compressed'],
-                'zip_filename': form.cleaned_data['zip_filename'],
                 'id_list': ','.join(
                     map(str, self.queryset.values_list('pk', flat=True))
                 )
-            }, doseq=True
+            }
         )
+
+        querystring = urlencode(querystring_dictionary, doseq=True)
 
         if self.queryset.count() > 1:
             url = reverse(self.multiple_download_view)
@@ -441,17 +504,7 @@ class DocumentDownloadView(SingleObjectDownloadView):
 
     @staticmethod
     def get_item_file(item):
-        if isinstance(item, Document):
-            return item.open()
-        else:
-            return item.file
-
-    @staticmethod
-    def get_item_label(item):
-        if isinstance(item, Document):
-            return item.label
-        else:
-            return unicode(item)
+        return item.open()
 
     def get_document_queryset(self):
         id_list = self.request.GET.get(
@@ -476,10 +529,9 @@ class DocumentDownloadView(SingleObjectDownloadView):
         if self.request.GET.get('compressed') == 'True' or queryset.count() > 1:
             compressed_file = CompressedFile()
             for item in queryset:
-                descriptor = item.open()
+                descriptor = DocumentDownloadView.get_item_file(item=item)
                 compressed_file.add_file(
-                    descriptor,
-                    arcname=DocumentDownloadView.get_item_label(item=item)
+                    descriptor, arcname=self.get_item_label(item=item)
                 )
                 descriptor.close()
                 DocumentDownloadView.commit_event(
@@ -503,10 +555,11 @@ class DocumentDownloadView(SingleObjectDownloadView):
 
             return DocumentDownloadView.VirtualFile(
                 DocumentDownloadView.get_item_file(item=item),
-                name=DocumentDownloadView.get_item_label(
-                    item=item
-                )
+                name=self.get_item_label(item=item)
             )
+
+    def get_item_label(self, item):
+        return item.label
 
 
 class DocumentUpdatePageCountView(MultipleObjectConfirmActionView):
@@ -597,6 +650,70 @@ class DocumentTransformationsClearView(MultipleObjectConfirmActionView):
             )
 
 
+class DocumentTransformationsCloneView(FormView):
+    form_class = DocumentPageNumberForm
+
+    def form_valid(self, form):
+        instance = self.get_object()
+
+        try:
+            target_pages = instance.pages.exclude(
+                pk=form.cleaned_data['page'].pk
+            )
+
+            for page in target_pages:
+                Transformation.objects.get_for_model(page).delete()
+
+            Transformation.objects.copy(
+                source=form.cleaned_data['page'], targets=target_pages
+            )
+        except Exception as exception:
+            messages.error(
+                self.request, _(
+                    'Error deleting the page transformations for '
+                    'document: %(document)s; %(error)s.'
+                ) % {
+                    'document': instance, 'error': exception
+                }
+            )
+        else:
+            messages.success(
+                self.request, _('Transformations cloned successfully.')
+            )
+
+        return super(DocumentTransformationsCloneView, self).form_valid(form=form)
+
+    def get_form_extra_kwargs(self):
+        return {
+            'document': self.get_object()
+        }
+
+    def get_extra_context(self):
+        instance = self.get_object()
+
+        context = {
+            'object': instance,
+            'submit_label': _('Submit'),
+            'title': _(
+                'Clone page transformations for document: %s'
+            ) % instance,
+        }
+
+        return context
+
+    def get_object(self):
+        instance = get_object_or_404(Document, pk=self.kwargs['pk'])
+
+        AccessControlList.objects.check_access(
+            permissions=permission_transformation_edit,
+            user=self.request.user, obj=instance
+        )
+
+        instance.add_as_recent_document_for_user(self.request.user)
+
+        return instance
+
+
 class DocumentPrint(FormView):
     form_class = DocumentPrintForm
 
@@ -631,7 +748,6 @@ class DocumentPrint(FormView):
 
         context = {
             'object': instance,
-            'submit_method': 'POST',
             'submit_label': _('Submit'),
             'title': _('Print: %s') % instance,
         }
@@ -652,6 +768,34 @@ class DocumentPrint(FormView):
 
     def get_template_names(self):
         if self.request.method == 'POST':
-            return ['documents/document_print.html']
+            return ('documents/document_print.html',)
         else:
-            return [self.template_name]
+            return (self.template_name,)
+
+
+class DuplicatedDocumentListView(DocumentListView):
+    def get_document_queryset(self):
+        return Document.objects.filter(
+            pk__in=DuplicatedDocument.objects.values_list(
+                'document_id', flat=True
+            )
+        )
+
+    def get_extra_context(self):
+        context = super(DuplicatedDocumentListView, self).get_extra_context()
+        context.update(
+            {
+                'extra_columns': (
+                    {
+                        'name': _('Duplicates'),
+                        'attribute': encapsulate(
+                            lambda document: DuplicatedDocument.objects.get(
+                                document=document
+                            ).documents.count()
+                        )
+                    },
+                ),
+                'title': _('Duplicated documents')
+            }
+        )
+        return context

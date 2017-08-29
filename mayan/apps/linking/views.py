@@ -3,8 +3,8 @@ from __future__ import absolute_import, unicode_literals
 import logging
 
 from django.contrib import messages
-from django.core.urlresolvers import reverse, reverse_lazy
 from django.shortcuts import get_object_or_404
+from django.urls import reverse, reverse_lazy
 from django.utils.translation import ugettext_lazy as _
 
 from acls.models import AccessControlList
@@ -75,11 +75,14 @@ class ResolvedSmartLinkView(DocumentListView):
                 'smart_link': self.smart_link.label,
             }
 
-        return {
-            'hide_links': True,
-            'object': self.document,
-            'title': title,
-        }
+        context = super(ResolvedSmartLinkView, self).get_extra_context()
+        context.update(
+            {
+                'object': self.document,
+                'title': title,
+            }
+        )
+        return context
 
 
 class SetupSmartLinkDocumentTypesView(AssignRemoveView):
@@ -129,9 +132,8 @@ class SmartLinkListView(SingleObjectListView):
             'title': _('Smart links'),
         }
 
-    def get_queryset(self):
-        self.queryset = self.get_smart_link_queryset()
-        return super(SmartLinkListView, self).get_queryset()
+    def get_object_list(self):
+        return self.get_smart_link_queryset()
 
     def get_smart_link_queryset(self):
         return SmartLink.objects.all()
@@ -160,9 +162,7 @@ class DocumentSmartLinkListView(SmartLinkListView):
         }
 
     def get_smart_link_queryset(self):
-        return ResolvedSmartLink.objects.filter(
-            document_types=self.document.document_type, enabled=True
-        )
+        return ResolvedSmartLink.objects.get_for(document=self.document)
 
 
 class SmartLinkCreateView(SingleObjectCreateView):
@@ -209,7 +209,7 @@ class SmartLinkConditionListView(SingleObjectListView):
             ) % self.get_smart_link(),
         }
 
-    def get_queryset(self):
+    def get_object_list(self):
         return self.get_smart_link().conditions.all()
 
     def get_smart_link(self):

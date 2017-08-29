@@ -14,19 +14,29 @@ from django.utils.encoding import force_text
 from django.utils.translation import ugettext_lazy as _
 
 from mayan.celery import app
+from navigation.classes import Separator, Text
+from rest_api.classes import APIEndPoint
 
 from .handlers import (
+    handler_pre_initial_setup, handler_pre_upgrade,
     user_locale_profile_session_config, user_locale_profile_create
 )
 from .links import (
-    link_about, link_current_user_details, link_current_user_edit,
-    link_current_user_locale_profile_edit, link_filters, link_license,
-    link_packages_licenses, link_setup, link_tools
+    link_about, link_check_version, link_code, link_current_user_details,
+    link_current_user_edit, link_current_user_locale_profile_edit,
+    link_documentation, link_filters, link_forum, link_license,
+    link_object_error_list_clear, link_packages_licenses, link_setup,
+    link_support, link_tools
 )
+
 from .literals import DELETE_STALE_UPLOADS_INTERVAL
-from .menus import menu_facet, menu_main, menu_tools, menu_user
+from .menus import (
+    menu_about, menu_main, menu_secondary, menu_tools, menu_user
+)
 from .licenses import *  # NOQA
-from .settings import setting_auto_logging
+from .queues import *  # NOQA - Force queues registration
+from .settings import setting_auto_logging, setting_production_error_log_path
+from .signals import pre_initial_setup, pre_upgrade
 from .tasks import task_delete_stale_uploads  # NOQA - Force task registration
 
 logger = logging.getLogger(__name__)
@@ -55,11 +65,7 @@ class MayanAppConfig(apps.AppConfig):
                 )
             ),
         except ImportError as exception:
-            logger.debug(
-                'App %s doesn\'t have URLs defined. Exception: %s', self.name,
-                exception
-            )
-            if 'No module named' not in force_text(exception):
+            if force_text(exception) != 'No module named urls':
                 logger.error(
                     'Import time error when running AppConfig.ready(). Check '
                     'apps.py, urls.py, views.py, etc.'
@@ -69,12 +75,21 @@ class MayanAppConfig(apps.AppConfig):
 
 class CommonApp(MayanAppConfig):
     app_url = ''
+    has_tests = True
     name = 'common'
-    test = True
     verbose_name = _('Common')
+
+    @staticmethod
+    def get_user_label_text(context):
+        if not context['request'].user.is_authenticated:
+            return _('Anonymous')
+        else:
+            return context['request'].user.get_full_name() or context['request'].user
 
     def ready(self):
         super(CommonApp, self).ready()
+
+        APIEndPoint(app=self, version_string='1')
 
         app.conf.CELERYBEAT_SCHEDULE.update(
             {
@@ -107,24 +122,29 @@ class CommonApp(MayanAppConfig):
                 },
             }
         )
-        from navigation.classes import Separator
         menu_user.bind_links(
             links=(
+                Text(text=CommonApp.get_user_label_text), Separator(),
                 link_current_user_details, link_current_user_edit,
-                link_current_user_locale_profile_edit, link_tools, link_setup,
+                link_current_user_locale_profile_edit,
                 Separator()
             )
         )
 
-        menu_facet.bind_links(
-            links=(link_about, link_license, link_packages_licenses),
-            sources=(
-                'common:about_view', 'common:license_view',
-                'common:packages_licenses_view'
+        menu_about.bind_links(
+            links=(
+                link_tools, link_setup, link_about, link_support,
+                link_documentation, link_forum, link_code, link_license,
+                link_packages_licenses, link_check_version
             )
         )
-        menu_main.bind_links(links=(link_about,), position=99)
 
+        menu_main.bind_links(links=(menu_about, menu_user,), position=99)
+        menu_secondary.bind_links(
+            links=(link_object_error_list_clear,), sources=(
+                'common:object_error_list',
+            )
+        )
         menu_tools.bind_links(
             links=(link_filters,)
         )
@@ -134,6 +154,15 @@ class CommonApp(MayanAppConfig):
             dispatch_uid='user_locale_profile_create',
             sender=settings.AUTH_USER_MODEL
         )
+        pre_initial_setup.connect(
+            handler_pre_initial_setup,
+            dispatch_uid='common_handler_pre_initial_setup'
+        )
+        pre_upgrade.connect(
+            handler_pre_upgrade,
+            dispatch_uid='common_handler_pre_upgrade',
+        )
+
         user_logged_in.connect(
             user_locale_profile_session_config,
             dispatch_uid='user_locale_profile_session_config'
@@ -144,13 +173,15 @@ class CommonApp(MayanAppConfig):
         if setting_auto_logging.value:
             if settings.DEBUG:
                 level = 'DEBUG'
+                handlers = ['console']
             else:
-                level = 'INFO'
+                level = 'ERROR'
+                handlers = ['console', 'logfile']
 
             loggers = {}
             for project_app in apps.apps.get_app_configs():
                 loggers[project_app.name] = {
-                    'handlers': ['console'],
+                    'handlers': handlers,
                     'propagate': True,
                     'level': level,
                 }
@@ -161,15 +192,23 @@ class CommonApp(MayanAppConfig):
                     'disable_existing_loggers': True,
                     'formatters': {
                         'intermediate': {
-                            'format': '%(name)s <%(process)d> [%(levelname)s] "%(funcName)s() %(message)s"'
+                            'format': '%(name)s <%(process)d> [%(levelname)s] "%(funcName)s() line %(lineno)d %(message)s"'
+                        },
+                        'logfile': {
+                            'format': '%(asctime)s %(name)s <%(process)d> [%(levelname)s] "%(funcName)s() line %(lineno)d %(message)s"'
                         },
                     },
                     'handlers': {
                         'console': {
-                            'level': 'DEBUG',
                             'class': 'logging.StreamHandler',
-                            'formatter': 'intermediate'
-                        }
+                            'formatter': 'intermediate',
+                            'level': 'DEBUG',
+                        },
+                        'logfile': {
+                            'class': 'logging.handlers.WatchedFileHandler',
+                            'filename': setting_production_error_log_path.value,
+                            'formatter': 'logfile'
+                        },
                     },
                     'loggers': loggers
                 }

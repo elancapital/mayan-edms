@@ -1,21 +1,21 @@
 from __future__ import absolute_import, unicode_literals
 
 from django.contrib import messages
-from django.core.urlresolvers import reverse, reverse_lazy
 from django.shortcuts import get_object_or_404
+from django.urls import reverse, reverse_lazy
 from django.utils.html import mark_safe
 from django.utils.translation import ugettext_lazy as _
 
 from acls.models import AccessControlList
 from common.views import (
-    AssignRemoveView, ConfirmView, SingleObjectCreateView,
+    AssignRemoveView, FormView, SingleObjectCreateView,
     SingleObjectDeleteView, SingleObjectEditView, SingleObjectListView
 )
 from documents.models import Document, DocumentType
 from documents.permissions import permission_document_view
 from documents.views import DocumentListView
 
-from .forms import IndexTemplateNodeForm
+from .forms import IndexListForm, IndexTemplateNodeForm
 from .models import (
     DocumentIndexInstanceNode, Index, IndexInstance, IndexInstanceNode,
     IndexTemplateNode
@@ -25,7 +25,7 @@ from .permissions import (
     permission_document_indexing_edit, permission_document_indexing_rebuild,
     permission_document_indexing_view
 )
-from .tasks import task_do_rebuild_all_indexes
+from .tasks import task_rebuild_index
 from .widgets import node_tree
 
 
@@ -119,14 +119,6 @@ class SetupIndexDocumentTypesView(AssignRemoveView):
 class SetupIndexTreeTemplateListView(SingleObjectListView):
     object_permission = permission_document_indexing_edit
 
-    def get_index(self):
-        return get_object_or_404(Index, pk=self.kwargs['pk'])
-
-    def get_queryset(self):
-        return self.get_index().template_root.get_descendants(
-            include_self=True
-        )
-
     def get_extra_context(self):
         return {
             'hide_object': True,
@@ -134,6 +126,14 @@ class SetupIndexTreeTemplateListView(SingleObjectListView):
             'navigation_object_list': ('index',),
             'title': _('Tree template nodes for index: %s') % self.get_index(),
         }
+
+    def get_index(self):
+        return get_object_or_404(Index, pk=self.kwargs['pk'])
+
+    def get_object_list(self):
+        return self.get_index().template_root.get_descendants(
+            include_self=True
+        )
 
 
 class TemplateNodeCreateView(SingleObjectCreateView):
@@ -236,22 +236,11 @@ class IndexInstanceNodeView(DocumentListView):
 
         if self.index_instance_node:
             if self.index_instance_node.index_template_node.link_documents:
-                return DocumentListView.dispatch(
-                    self, request, *args, **kwargs
+                return super(IndexInstanceNodeView, self).dispatch(
+                    request, *args, **kwargs
                 )
 
         return SingleObjectListView.dispatch(self, request, *args, **kwargs)
-
-    def get_queryset(self):
-        if self.index_instance_node:
-            if self.index_instance_node.index_template_node.link_documents:
-                return DocumentListView.get_queryset(self)
-            else:
-                self.object_permission = None
-                return self.index_instance_node.get_children().order_by('value')
-        else:
-            self.object_permission = None
-            return IndexInstanceNode.objects.none()
 
     def get_document_queryset(self):
         if self.index_instance_node:
@@ -259,23 +248,43 @@ class IndexInstanceNodeView(DocumentListView):
                 return self.index_instance_node.documents.all()
 
     def get_extra_context(self):
-        context = {
-            'hide_links': True,
-            'object': self.index_instance_node,
-            'navigation': mark_safe(
-                _('Navigation: %s') % node_tree(
-                    node=self.index_instance_node, user=self.request.user
-                )
-            ),
-            'title': _(
-                'Contents for index: %s'
-            ) % self.index_instance_node.get_full_path(),
-        }
+        context = super(IndexInstanceNodeView, self).get_extra_context()
+        context.update(
+            {
+                'object': self.index_instance_node,
+                'navigation': mark_safe(
+                    _('Navigation: %s') % node_tree(
+                        node=self.index_instance_node, user=self.request.user
+                    )
+                ),
+                'title': _(
+                    'Contents for index: %s'
+                ) % self.index_instance_node.get_full_path(),
+            }
+        )
 
         if self.index_instance_node and not self.index_instance_node.index_template_node.link_documents:
-            context.update({'hide_object': True})
+            context.update(
+                {
+                    'hide_object': True,
+                    'list_as_items': False,
+                }
+            )
 
         return context
+
+    def get_object_list(self):
+        if self.index_instance_node:
+            if self.index_instance_node.index_template_node.link_documents:
+                return super(IndexInstanceNodeView, self).get_object_list()
+            else:
+                self.object_permission = None
+                return self.index_instance_node.get_children().order_by(
+                    'value'
+                )
+        else:
+            self.object_permission = None
+            return IndexInstanceNode.objects.none()
 
 
 class DocumentIndexNodeListView(SingleObjectListView):
@@ -308,20 +317,26 @@ class DocumentIndexNodeListView(SingleObjectListView):
             ) % self.get_document(),
         }
 
-    def get_queryset(self):
+    def get_object_list(self):
         return DocumentIndexInstanceNode.objects.get_for(self.get_document())
 
 
-class RebuildIndexesConfirmView(ConfirmView):
+class RebuildIndexesView(FormView):
     extra_context = {
-        'message': _('On large databases this operation may take some time to execute.'),
-        'title': _('Rebuild all indexes?'),
+        'title': _('Rebuild indexes'),
     }
+    form_class = IndexListForm
     view_permission = permission_document_indexing_rebuild
+
+    def form_valid(self, form):
+        for index in form.cleaned_data['indexes']:
+            task_rebuild_index.apply_async(
+                kwargs=dict(index_id=index.pk)
+            )
+
+        messages.success(self.request, _('Index rebuild queued successfully.'))
+
+        return super(RebuildIndexesView, self).form_valid(form=form)
 
     def get_post_action_redirect(self):
         return reverse('common:tools_list')
-
-    def view_action(self):
-        task_do_rebuild_all_indexes.apply_async()
-        messages.success(self.request, _('Index rebuild queued successfully.'))

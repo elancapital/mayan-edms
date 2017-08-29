@@ -9,29 +9,30 @@ from .api_views import (
     APIDocumentPageImageView, APIDocumentPageView,
     APIDocumentTypeDocumentListView, APIDocumentTypeListView,
     APIDocumentTypeView, APIDocumentVersionsListView,
-    APIDocumentVersionRevertView, APIDocumentVersionView,
+    APIDocumentVersionPageListView, APIDocumentVersionView,
     APIRecentDocumentListView
 )
 from .views import (
     ClearImageCacheView, DeletedDocumentDeleteView,
     DeletedDocumentDeleteManyView, DeletedDocumentListView,
     DocumentDocumentTypeEditView, DocumentDownloadFormView,
-    DocumentDownloadView, DocumentEditView, DocumentListView,
-    DocumentPageListView, DocumentPageRotateLeftView,
+    DocumentDownloadView, DocumentDuplicatesListView, DocumentEditView,
+    DocumentListView, DocumentPageListView, DocumentPageNavigationFirst,
+    DocumentPageNavigationLast, DocumentPageNavigationNext,
+    DocumentPageNavigationPrevious, DocumentPageRotateLeftView,
     DocumentPageRotateRightView, DocumentPageView, DocumentPageViewResetView,
     DocumentPageZoomInView, DocumentPageZoomOutView, DocumentPreviewView,
     DocumentPrint, DocumentRestoreView, DocumentRestoreManyView,
-    DocumentTransformationsClearView, DocumentTrashView, DocumentTrashManyView,
-    DocumentTypeCreateView, DocumentTypeDeleteView,
-    DocumentTypeDocumentListView, DocumentTypeFilenameCreateView,
-    DocumentTypeFilenameDeleteView, DocumentTypeFilenameEditView,
-    DocumentTypeFilenameListView, DocumentTypeListView, DocumentTypeEditView,
-    DocumentUpdatePageCountView, DocumentVersionDownloadFormView,
-    DocumentVersionDownloadView, DocumentVersionListView,
-    DocumentVersionRevertView, DocumentView, EmptyTrashCanView,
-    RecentDocumentListView, document_page_navigation_first,
-    document_page_navigation_last, document_page_navigation_next,
-    document_page_navigation_previous
+    DocumentTransformationsClearView, DocumentTransformationsCloneView,
+    DocumentTrashView, DocumentTrashManyView, DocumentTypeCreateView,
+    DocumentTypeDeleteView, DocumentTypeDocumentListView,
+    DocumentTypeFilenameCreateView, DocumentTypeFilenameDeleteView,
+    DocumentTypeFilenameEditView, DocumentTypeFilenameListView,
+    DocumentTypeListView, DocumentTypeEditView, DocumentUpdatePageCountView,
+    DocumentVersionDownloadFormView, DocumentVersionDownloadView,
+    DocumentVersionListView, DocumentVersionRevertView, DocumentVersionView,
+    DocumentView, DuplicatedDocumentListView, EmptyTrashCanView,
+    RecentDocumentListView, ScanDuplicatedDocuments
 )
 
 
@@ -45,7 +46,11 @@ urlpatterns = [
         r'^list/deleted/$', DeletedDocumentListView.as_view(),
         name='document_list_deleted'
     ),
-
+    url(
+        r'^list/duplicated/$',
+        DuplicatedDocumentListView.as_view(),
+        name='duplicated_document_list'
+    ),
     url(
         r'^(?P<pk>\d+)/preview/$', DocumentPreviewView.as_view(),
         name='document_preview'
@@ -53,6 +58,10 @@ urlpatterns = [
     url(
         r'^(?P<pk>\d+)/properties/$', DocumentView.as_view(),
         name='document_properties'
+    ),
+    url(
+        r'^(?P<pk>\d+)/duplicates/$', DocumentDuplicatesListView.as_view(),
+        name='document_duplicates_list'
     ),
     url(
         r'^(?P<pk>\d+)/restore/$', DocumentRestoreView.as_view(),
@@ -125,7 +134,11 @@ urlpatterns = [
         DocumentTransformationsClearView.as_view(),
         name='document_clear_transformations'
     ),
-
+    url(
+        r'^(?P<pk>\d+)/clone_transformations/$',
+        DocumentTransformationsCloneView.as_view(),
+        name='document_clone_transformations'
+    ),
     url(
         r'^(?P<pk>\d+)/version/all/$', DocumentVersionListView.as_view(),
         name='document_version_list'
@@ -134,6 +147,10 @@ urlpatterns = [
         r'^document/version/(?P<pk>\d+)/download/form/$',
         DocumentVersionDownloadFormView.as_view(),
         name='document_version_download_form'
+    ),
+    url(
+        r'^document/version/(?P<pk>\d+)/$', DocumentVersionView.as_view(),
+        name='document_version_view'
     ),
     url(
         r'^document/version/(?P<pk>\d+)/download/$',
@@ -168,21 +185,24 @@ urlpatterns = [
         name='document_page_view'
     ),
     url(
-        r'^page/(?P<document_page_id>\d+)/navigation/next/$',
-        document_page_navigation_next, name='document_page_navigation_next'
+        r'^page/(?P<pk>\d+)/navigation/next/$',
+        DocumentPageNavigationNext.as_view(),
+        name='document_page_navigation_next'
     ),
     url(
-        r'^page/(?P<document_page_id>\d+)/navigation/previous/$',
-        document_page_navigation_previous,
+        r'^page/(?P<pk>\d+)/navigation/previous/$',
+        DocumentPageNavigationPrevious.as_view(),
         name='document_page_navigation_previous'
     ),
     url(
-        r'^page/(?P<document_page_id>\d+)/navigation/first/$',
-        document_page_navigation_first, name='document_page_navigation_first'
+        r'^page/(?P<pk>\d+)/navigation/first/$',
+        DocumentPageNavigationFirst.as_view(),
+        name='document_page_navigation_first'
     ),
     url(
-        r'^page/(?P<document_page_id>\d+)/navigation/last/$',
-        document_page_navigation_last, name='document_page_navigation_last'
+        r'^page/(?P<pk>\d+)/navigation/last/$',
+        DocumentPageNavigationLast.as_view(),
+        name='document_page_navigation_last'
     ),
     url(
         r'^page/(?P<pk>\d+)/zoom/in/$',
@@ -248,21 +268,17 @@ urlpatterns = [
         DocumentTypeFilenameCreateView.as_view(),
         name='document_type_filename_create'
     ),
+
+    # Tools
+
+    url(
+        r'^tools/documents/duplicated/scan/$',
+        ScanDuplicatedDocuments.as_view(),
+        name='duplicated_document_scan'
+    ),
 ]
 
 api_urls = [
-    url(
-        r'^trashed_documents/$', APIDeletedDocumentListView.as_view(),
-        name='trasheddocument-list'
-    ),
-    url(
-        r'^trashed_documents/(?P<pk>[0-9]+)/$',
-        APIDeletedDocumentView.as_view(), name='trasheddocument-detail'
-    ),
-    url(
-        r'^trashed_documents/(?P<pk>[0-9]+)/restore/$',
-        APIDeletedDocumentRestoreView.as_view(), name='trasheddocument-restore'
-    ),
     url(r'^documents/$', APIDocumentListView.as_view(), name='document-list'),
     url(
         r'^documents/recent/$', APIRecentDocumentListView.as_view(),
@@ -273,31 +289,32 @@ api_urls = [
         name='document-detail'
     ),
     url(
-        r'^documents/(?P<pk>[0-9]+)/versions/$',
-        APIDocumentVersionsListView.as_view(), name='document-version-list'
-    ),
-    url(
         r'^documents/(?P<pk>[0-9]+)/download/$',
         APIDocumentDownloadView.as_view(), name='document-download'
     ),
     url(
-        r'^document_version/(?P<pk>[0-9]+)/$',
+        r'^documents/(?P<pk>[0-9]+)/versions/$',
+        APIDocumentVersionsListView.as_view(), name='document-version-list'
+    ),
+    url(
+        r'^documents/(?P<pk>[0-9]+)/versions/(?P<version_pk>[0-9]+)/$',
         APIDocumentVersionView.as_view(), name='documentversion-detail'
     ),
     url(
-        r'^document_version/(?P<pk>[0-9]+)/revert/$',
-        APIDocumentVersionRevertView.as_view(), name='documentversion-revert'
+        r'^documents/(?P<pk>[0-9]+)/versions/(?P<version_pk>[0-9]+)/pages/$',
+        APIDocumentVersionPageListView.as_view(), name='documentversion-page-list'
     ),
     url(
-        r'^document_version/(?P<pk>[0-9]+)/download/$',
-        APIDocumentVersionDownloadView.as_view(), name='documentversion-download'
+        r'^documents/(?P<pk>[0-9]+)/versions/(?P<version_pk>[0-9]+)/download/$',
+        APIDocumentVersionDownloadView.as_view(),
+        name='documentversion-download'
     ),
     url(
-        r'^document_page/(?P<pk>[0-9]+)/$', APIDocumentPageView.as_view(),
-        name='documentpage-detail'
+        r'^documents/(?P<pk>[0-9]+)/versions/(?P<version_pk>[0-9]+)/pages/(?P<page_pk>[0-9]+)$',
+        APIDocumentPageView.as_view(), name='documentpage-detail'
     ),
     url(
-        r'^document_page/(?P<pk>[0-9]+)/image/$',
+        r'^documents/(?P<pk>[0-9]+)/versions/(?P<version_pk>[0-9]+)/pages/(?P<page_pk>[0-9]+)/image/$',
         APIDocumentPageImageView.as_view(), name='documentpage-image'
     ),
     url(
@@ -312,5 +329,17 @@ api_urls = [
     url(
         r'^document_types/$', APIDocumentTypeListView.as_view(),
         name='documenttype-list'
+    ),
+    url(
+        r'^trashed_documents/$', APIDeletedDocumentListView.as_view(),
+        name='trasheddocument-list'
+    ),
+    url(
+        r'^trashed_documents/(?P<pk>[0-9]+)/$',
+        APIDeletedDocumentView.as_view(), name='trasheddocument-detail'
+    ),
+    url(
+        r'^trashed_documents/(?P<pk>[0-9]+)/restore/$',
+        APIDeletedDocumentRestoreView.as_view(), name='trasheddocument-restore'
     ),
 ]

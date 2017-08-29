@@ -25,16 +25,18 @@ from .permissions import (
     permission_tag_attach, permission_tag_delete, permission_tag_edit,
     permission_tag_remove, permission_tag_view
 )
+from .search import tag_search  # NOQA
 from .widgets import widget_document_tags, widget_single_tag
 
 
 class TagsApp(MayanAppConfig):
+    has_tests = True
     name = 'tags'
-    test = True
     verbose_name = _('Tags')
 
     def ready(self):
         super(TagsApp, self).ready()
+        from actstream import registry
 
         Document = apps.get_model(
             app_label='documents', model_name='Document'
@@ -64,8 +66,9 @@ class TagsApp(MayanAppConfig):
         ModelPermission.register(
             model=Tag, permissions=(
                 permission_acl_edit, permission_acl_view,
-                permission_tag_delete, permission_tag_edit,
-                permission_tag_view,
+                permission_tag_attach, permission_tag_delete,
+                permission_tag_edit, permission_tag_remove,
+                permission_tag_view
             )
         )
 
@@ -141,3 +144,4 @@ class TagsApp(MayanAppConfig):
                 'tags:single_document_multiple_tag_remove'
             )
         )
+        registry.register(Tag)
