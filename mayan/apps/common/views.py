@@ -134,6 +134,10 @@ class CurrentUserLocaleProfileEditView(SingleObjectEditView):
         return self.request.user.locale_profile
 
 
+class DisclaimerView(TemplateView):
+    template_name = 'appearance/disclaimer.html'
+
+
 class FaviconRedirectView(RedirectView):
     permanent = True
 

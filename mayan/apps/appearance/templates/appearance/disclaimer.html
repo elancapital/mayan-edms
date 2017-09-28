@@ -1,0 +1,77 @@
+{% extends 'appearance/base.html' %}
+
+{% load i18n %}
+{% load static %}
+
+{% load common_tags %}
+{% load navigation_tags %}
+
+{% block title %}{% trans 'Disclaimer' %}{% endblock %}
+
+{% block javascript %}
+    <script>
+        $(function() {
+            $('.match-height').matchHeight();
+        });
+    </script>
+{% endblock javascript %}
+
+{% block content %}
+    <h3>
+        {% trans 'Dashboard' %}
+    </h3>
+    <hr>
+
+    <div class="row">
+        <div class="col-xs-12">
+            <div class="panel panel-primary">
+                 <div class="panel panel-primary">
+                    <div class="panel-heading">
+                        <h3 class="panel-title">{% trans 'Disclaimer' %}</h3>
+                    </div>
+                     <div class="panel-body">
+                         Lorem ipsum dolor sit amet, consectetur adipiscing elit. Integer nec euismod justo. Praesent at semper elit, eget euismod ligula. Aenean id lorem nunc. Quisque cursus maximus ultrices. Nulla lectus neque, vestibulum vitae augue nec, ullamcorper lacinia ligula. Fusce nisl elit, vulputate quis lectus sit amet, tempus rutrum tortor. Duis sit amet tortor eu augue interdum molestie eu vel est. Duis interdum nibh semper ante tincidunt, quis pulvinar nibh tempus. Pellentesque mollis purus nec sem ultrices faucibus. Aenean congue euismod massa.
+
+Integer aliquam vulputate ipsum vitae volutpat. Vivamus interdum purus quis volutpat laoreet. Ut aliquam erat ac vulputate elementum. Maecenas euismod risus eu nisl fermentum, id facilisis nulla interdum. Fusce venenatis porta dictum. In tempor mi id nisi rhoncus posuere. Donec vel neque sem. Sed at fermentum orci, eget maximus purus. Quisque volutpat lorem ut dui dictum vehicula. Fusce ac nulla tristique, viverra dolor vel, bibendum nunc. Morbi non felis leo. Curabitur libero ligula, volutpat gravida maximus id, malesuada eu arcu. Ut consectetur ullamcorper justo quis dapibus.
+
+Vestibulum malesuada leo libero, eget congue dolor laoreet eu. Proin laoreet sodales velit at feugiat. Duis volutpat leo nulla, non dignissim mi condimentum eget. Ut lacinia blandit mi, eu congue odio vehicula mattis. Donec quis maximus urna, ac mollis sem. Nam ipsum lorem, dignissim in blandit quis, viverra at magna. Quisque euismod gravida nibh quis cursus. Sed metus metus, tincidunt sed vehicula scelerisque, pulvinar a quam. Phasellus rutrum enim diam, a placerat purus imperdiet et. Duis tempus consequat laoreet. Integer vitae eros fermentum, cursus mauris ac, euismod velit. Vivamus eget libero sit amet est placerat aliquet eu sit amet augue. Aliquam lacus odio, tincidunt non fermentum quis, interdum ut leo.
+
+Mauris vitae nunc et diam auctor maximus. Mauris eu scelerisque nunc. Vestibulum venenatis augue et fermentum ultrices. Aliquam erat volutpat. Proin viverra fermentum purus non varius. Nulla nec varius purus, a semper leo. Nunc sit amet sapien viverra, ornare diam eget, euismod nisl.
+
+Vestibulum quis sagittis sem, sit amet suscipit sapien. Morbi turpis sem, pulvinar nec fringilla in, blandit vitae libero. Nulla ac facilisis justo. Suspendisse faucibus hendrerit tortor, ut tempor quam dictum non. Ut vitae urna velit. Etiam auctor convallis velit vel mollis. Nullam venenatis eget nisl in elementum. Phasellus tellus sem, finibus et aliquam nec, rhoncus id libero. Nulla neque purus, bibendum quis odio facilisis, iaculis tempor ex. Vivamus ac erat dapibus, volutpat purus et, vehicula odio. Maecenas purus turpis, varius porta maximus a, faucibus in eros. Etiam molestie eros risus, quis volutpat tellus auctor vel. Sed finibus aliquam justo malesuada lacinia.
+
+Integer in urna sed massa placerat interdum. Etiam fermentum lectus vitae vestibulum venenatis. Sed imperdiet diam ac consequat tristique. Sed tortor dui, euismod et sollicitudin sed, porttitor id leo. Duis volutpat massa metus, et rutrum mauris consequat et. Morbi dignissim porttitor nulla, ac facilisis ante tincidunt at. Quisque vel dignissim velit. Aliquam id auctor sem, in blandit quam. In hac habitasse platea dictumst. Morbi in molestie elit.
+
+Nam interdum felis eu dignissim pellentesque. Donec pharetra blandit sem vel auctor. Morbi nec consequat sem. In gravida eleifend quam. Integer in odio odio. Nam luctus porta lectus. Fusce eget elementum lorem, eu varius risus. Integer ac diam leo. Nunc ac aliquet justo. Curabitur ac purus blandit, imperdiet sapien ac, dignissim felis. In a pretium velit. Nunc posuere, nibh non aliquam dapibus, leo sem laoreet elit, et rutrum nisi enim imperdiet lectus. Aliquam erat volutpat. Nam consequat luctus egestas. Sed blandit vehicula feugiat.
+
+Proin ornare malesuada auctor. Duis ullamcorper felis nisi, ut volutpat enim pulvinar et. Nam consectetur leo at sem sollicitudin, id malesuada nulla laoreet. Cras a iaculis diam, interdum convallis dolor. Sed nisi risus, accumsan ut accumsan ac, placerat ac enim. Nunc id faucibus ante, sed fermentum eros. Aenean sodales velit massa. Vivamus sed quam quis eros commodo gravida. Vivamus aliquet tincidunt ex, ac dictum est semper sit amet. Morbi cursus eu mauris nec venenatis.
+
+Quisque ac ipsum leo. Cras varius lacus in odio auctor, non sodales neque placerat. Cras iaculis, velit id posuere efficitur, lectus nisi tristique orci, quis consequat leo dui at lacus. Nullam sapien nisi, suscipit vel fermentum quis, molestie in lectus. Cras et mi porta, rhoncus quam vitae, dignissim eros. Nam suscipit congue sem sit amet congue. Donec quis volutpat massa.
+
+Sed convallis mollis luctus. Maecenas risus tellus, ornare et nibh et, lobortis pellentesque arcu. Nunc at tellus et nibh vestibulum facilisis vulputate sed tellus. Pellentesque id nisl vitae tellus lacinia vestibulum at et dolor. Maecenas non tellus ac odio sagittis pharetra sed at urna. Duis non augue nisl. Cras ex lacus, mollis vitae lorem eget, euismod tempor libero.
+
+Sed mi risus, varius eu urna nec, varius pharetra massa. Aliquam ac mauris lorem. In nec felis massa. Sed suscipit tellus ac risus ultricies, eget fermentum quam iaculis. Sed iaculis erat at mauris blandit porta. Curabitur velit quam, sodales a lacus ultrices, euismod volutpat purus. Suspendisse tincidunt luctus velit at pretium. Sed ultrices auctor tristique. Ut mollis suscipit nulla, sodales tempus arcu maximus quis. Praesent at odio nisi.
+
+Sed semper at arcu ut congue. Vestibulum dignissim magna nisi, at rhoncus dolor ornare vel. Vestibulum ante ipsum primis in faucibus orci luctus et ultrices posuere cubilia Curae; Donec vel ex sapien. Duis dignissim lorem ut diam rutrum, in posuere diam posuere. Duis eu commodo est. Nulla ac erat orci. Vivamus at lorem pulvinar, ultrices nibh vel, pharetra ipsum.
+
+Phasellus sed posuere ex. Integer purus velit, mattis eget ultrices molestie, posuere sit amet lectus. Donec varius ac elit ac scelerisque. Integer dapibus consectetur ipsum finibus malesuada. Mauris facilisis odio nec elit efficitur aliquam. Fusce tempus consequat lobortis. Integer vestibulum metus et massa posuere, eu commodo arcu tristique.
+
+Sed aliquet viverra tortor, eget pellentesque est pulvinar sit amet. Integer malesuada justo tortor, non malesuada dolor facilisis eu. Fusce nulla orci, mollis sed purus ac, lobortis convallis sem. Quisque ut ornare odio. Donec ac faucibus erat. Sed in neque at est feugiat egestas. Mauris viverra felis et turpis placerat rhoncus. Mauris sollicitudin, sem vitae efficitur maximus, est leo ornare lacus, nec vestibulum libero dolor et leo. Donec in ipsum non enim gravida placerat. Nulla molestie, nisl id varius mollis, ipsum urna luctus velit, vitae consequat magna libero quis enim.
+
+Phasellus ligula lectus, vehicula pellentesque blandit et, vehicula eget ligula. Fusce molestie ex id massa vulputate bibendum. Aenean sagittis nulla id metus dictum, et pharetra orci tempor. Nullam eu facilisis turpis. Praesent et pretium ipsum, sed suscipit nunc. Sed tincidunt bibendum ante, vel sagittis diam. Cras elementum massa blandit cursus gravida. Morbi consequat ex ligula. Nulla justo turpis, lobortis vel lorem quis, ornare commodo turpis. In elementum ultricies augue nec commodo. In commodo vulputate suscipit. Quisque augue nunc, accumsan non felis at, eleifend varius tortor. Quisque et porttitor erat, a dignissim justo. In ac ipsum sed purus fermentum malesuada.
+                    </div>
+                </div>
+            </div>
+            <div class="panel-body">
+                    <h2>I Agree</h2>
+                    <hr>
+                    <form action="/" method="post" class="form login">
+                        <div class="form-group">
+                                <button class="btn btn-primary" name="{% if form.prefix %}{{ form.prefix }}-submit{% else %}submit{% endif %}" type="submit"><i class="fa fa-sign-in"></i> OK </button>
+                        </div>
+                    </form>
+            </div>
+        </div>
+    </div>
+
+{% endblock %}
