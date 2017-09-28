@@ -252,7 +252,7 @@ COMPRESS_ENABLED = False
 COMPRESS_PARSER = 'compressor.parser.HtmlParser'
 # --------- Django -------------------
 LOGIN_URL = 'authentication:login_view'
-LOGIN_REDIRECT_URL = 'common:home'
+LOGIN_REDIRECT_URL = 'common:disclaimer'
 INTERNAL_IPS = ('127.0.0.1',)
 # ---------- Django REST framework -----------
 REST_FRAMEWORK = {
