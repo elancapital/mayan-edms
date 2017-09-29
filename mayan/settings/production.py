@@ -16,3 +16,5 @@ TEMPLATES[0]['OPTIONS']['loaders'] = (
 )
 
 CELERY_ALWAYS_EAGER = False
+
+DEBUG = True
