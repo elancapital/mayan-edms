@@ -15,7 +15,7 @@ from .views import (
 
 urlpatterns = [
     url(r'^$', HomeView.as_view(), name='home'),
-    url(r'^disclaimer/$', DisclaimerView.as_view(), name='disclaimer_view'),
+    url(r'^disclaimer/$', DisclaimerView.as_view(), name='disclaimer'),
     url(r'^about/$', AboutView.as_view(), name='about_view'),
     url(
         r'^check_version/$', CheckVersionView.as_view(),
